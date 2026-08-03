@@ -1,0 +1,41 @@
+name: Auto-assign
+
+# Sweeps every open issue and pull request rather than only the one that
+# triggered the run. A pull request opened by an Action with the default token
+# produces a run stuck in "awaiting approval" that never starts on its own; the
+# scheduled sweep in the caller is what picks those up.
+
+on:
+  workflow_call:
+    inputs:
+      assignee:
+        description: Login to assign unassigned issues and pull requests to.
+        required: false
+        type: string
+        default: roquerodrigo
+
+permissions: {}
+
+jobs:
+  assign:
+    name: Assign @${{ inputs.assignee }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      issues: write
+      pull-requests: write
+    steps:
+      - name: Assign the unassigned
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSIGNEE: ${{ inputs.assignee }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPOSITORY}/issues?state=open&per_page=100" --paginate \
+            --jq '.[] | select(.assignees | length == 0) | .number' |
+            while read -r number; do
+              gh api --method POST "repos/${REPOSITORY}/issues/${number}/assignees" \
+                -f "assignees[]=${ASSIGNEE}" --silent
+              echo "Assigned #${number} to ${ASSIGNEE}"
+            done

@@ -1,0 +1,26 @@
+name: Auto-assign
+
+on:
+  issues:
+    types: [opened, reopened]
+  # zizmor: ignore[dangerous-triggers]
+  pull_request_target:
+    types: [opened, reopened]
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+concurrency:
+  group: auto-assign
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  # The trigger is safe here: nothing is checked out and no pull request content
+  # reaches a shell — the job only calls the issues API.
+  auto-assign:
+    permissions:
+      issues: write
+      pull-requests: write
+    uses: ./.github/workflows/auto-assign.yml

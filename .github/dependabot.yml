@@ -1,0 +1,35 @@
+version: 2
+
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: wednesday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /actions/setup-python
+    schedule:
+      interval: weekly
+      day: wednesday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"
+
+  - package-ecosystem: github-actions
+    directory: /actions/setup-node
+    schedule:
+      interval: weekly
+      day: wednesday
+    cooldown:
+      default-days: 7
+    commit-message:
+      prefix: "chore"

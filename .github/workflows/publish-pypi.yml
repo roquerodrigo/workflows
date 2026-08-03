@@ -1,0 +1,58 @@
+name: Publish to PyPI
+
+on:
+  workflow_call:
+    inputs:
+      package:
+        description: Package name on PyPI, used for the deployment environment URL.
+        required: true
+        type: string
+      ref:
+        description: Tag or commit to build and publish.
+        required: true
+        type: string
+      python-version:
+        description: Interpreter version used to build the distributions.
+        required: false
+        type: string
+        default: "3.14"
+      environment:
+        description: Deployment environment gating the publish.
+        required: false
+        type: string
+        default: pypi
+    secrets:
+      pypi-token:
+        description: PyPI API token for the project.
+        required: true
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish to PyPI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: ${{ inputs.environment }}
+      url: https://pypi.org/p/${{ inputs.package }}
+    steps:
+      - name: Check out the released ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: roquerodrigo/workflows/actions/setup-python@main
+        with:
+          python-version: ${{ inputs.python-version }}
+          sync: "false"
+
+      - name: Build the source distribution and wheel
+        run: uv build
+
+      - name: Upload to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # release/v1
+        with:
+          password: ${{ secrets.pypi-token }}

@@ -1,0 +1,59 @@
+name: Release Please
+
+# Grooms the release pull request from the conventional commits on the default
+# branch, and tags the version once that pull request is merged. Publishing is a
+# separate concern: compose this with publish-pypi.yml or publish-npm.yml.
+
+on:
+  workflow_call:
+    inputs:
+      config-file:
+        description: Path to the release-please configuration.
+        required: false
+        type: string
+        default: release-please-config.json
+      manifest-file:
+        description: Path to the release-please manifest.
+        required: false
+        type: string
+        default: .release-please-manifest.json
+    secrets:
+      release-token:
+        description: >-
+          Token with contents and pull-requests write access. Falls back to the
+          default GITHUB_TOKEN, whose pushes do not trigger workflows — a
+          release pull request opened with it keeps stale checks.
+        required: false
+    outputs:
+      release-created:
+        description: "\"true\" when a tag was cut on this run."
+        value: ${{ jobs.release-please.outputs.release-created }}
+      tag-name:
+        description: Tag created by this run, if any.
+        value: ${{ jobs.release-please.outputs.tag-name }}
+      release-pr:
+        description: JSON describing the open release pull request, if any.
+        value: ${{ jobs.release-please.outputs.release-pr }}
+
+permissions: {}
+
+jobs:
+  release-please:
+    name: Release Please
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release-created: ${{ steps.release.outputs.release_created }}
+      tag-name: ${{ steps.release.outputs.tag_name }}
+      release-pr: ${{ steps.release.outputs.pr }}
+    steps:
+      - name: Groom the release
+        id: release
+        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        with:
+          token: ${{ secrets.release-token || github.token }}
+          config-file: ${{ inputs.config-file }}
+          manifest-file: ${{ inputs.manifest-file }}

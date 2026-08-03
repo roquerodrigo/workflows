@@ -1,0 +1,41 @@
+name: Python tests
+
+# The coverage threshold lives in the consumer's pyproject.toml
+# (`[tool.pytest.ini_options] addopts = ["--cov-fail-under=N"]`) so a local run
+# and CI agree on what passing means.
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Interpreter version to test against.
+        required: false
+        type: string
+        default: "3.14"
+      groups:
+        description: Space-separated dependency groups to sync.
+        required: false
+        type: string
+        default: dev
+
+permissions: {}
+
+jobs:
+  pytest:
+    name: Pytest
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: roquerodrigo/workflows/actions/setup-python@main
+        with:
+          python-version: ${{ inputs.python-version }}
+          groups: ${{ inputs.groups }}
+
+      - name: Run the test suite
+        run: uv run pytest

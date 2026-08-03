@@ -1,0 +1,90 @@
+name: Home Assistant validation
+
+# Every job is opt-out because the three consumer shapes need different subsets:
+# a public integration runs all three, a private one cannot run HACS validation
+# (it reads the repository through the public GitHub API), and a Lovelace card
+# has no manifest and no Python package to check.
+
+on:
+  workflow_call:
+    inputs:
+      hassfest:
+        description: Whether to run the Home Assistant manifest validator.
+        required: false
+        type: boolean
+        default: true
+      hacs:
+        description: Whether to run the HACS repository validator.
+        required: false
+        type: boolean
+        default: true
+      hacs-category:
+        description: HACS category to validate as (integration, plugin, theme…).
+        required: false
+        type: string
+        default: integration
+      version-check:
+        description: Whether to assert manifest.json and pyproject.toml agree.
+        required: false
+        type: boolean
+        default: true
+
+permissions: {}
+
+jobs:
+  hassfest:
+    name: Hassfest validation
+    if: inputs.hassfest
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate the manifest
+        uses: home-assistant/actions/hassfest@a7c616ce81ccda50150bf1595786c71b1883fabb # master
+
+  hacs:
+    name: HACS validation
+    if: inputs.hacs
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Validate the repository
+        uses: hacs/action@d556e736723344f83838d08488c983a15381059a # 22.5.0
+        with:
+          category: ${{ inputs.hacs-category }}
+
+  version-check:
+    # Catches drift between the two version sources: manifest.json, which Home
+    # Assistant reads at runtime, and pyproject.toml, which release-please bumps
+    # alongside it. Release-please writes both atomically; this guards against a
+    # manual edit that touches only one.
+    name: Version check
+    if: inputs.version-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Compare the declared versions
+        run: |
+          set -euo pipefail
+          manifest_version=$(jq -r .version custom_components/*/manifest.json)
+          project_version=$(grep -m1 '^version' pyproject.toml | awk -F'"' '{print $2}')
+          echo "manifest.json:  $manifest_version"
+          echo "pyproject.toml: $project_version"
+          if [ "$manifest_version" != "$project_version" ]; then
+            echo "::error::Version mismatch — manifest.json ($manifest_version) differs from pyproject.toml ($project_version)."
+            exit 1
+          fi

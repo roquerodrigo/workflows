@@ -1,0 +1,67 @@
+name: Publish to npm
+
+# Publishes through npm trusted publishing: the registry trusts an OIDC token
+# minted by this workflow run, so there is no long-lived npm token to store or
+# rotate, and the release carries provenance automatically.
+#
+# One-time setup per package, on npmjs.com > Package settings > Trusted
+# publisher: pick GitHub Actions, and register the *calling* repository plus the
+# caller's workflow filename (release.yml). The OIDC claim names the entry
+# workflow, not this reusable one.
+
+on:
+  workflow_call:
+    inputs:
+      ref:
+        description: Tag or commit to build and publish.
+        required: true
+        type: string
+      node-version:
+        description: >-
+          Node major version used to build and publish. Trusted publishing needs
+          the npm bundled from Node 24 upwards.
+        required: false
+        type: string
+        default: "24"
+      access:
+        description: Registry access level for the published version.
+        required: false
+        type: string
+        default: public
+      environment:
+        description: Deployment environment gating the publish.
+        required: false
+        type: string
+        default: npm
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: ${{ inputs.environment }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Check out the released ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: roquerodrigo/workflows/actions/setup-node@main
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Build
+        run: npm run build --if-present
+
+      - name: Publish
+        env:
+          ACCESS: ${{ inputs.access }}
+        run: npm publish --access "$ACCESS"

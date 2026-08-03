@@ -1,0 +1,35 @@
+name: Node lint
+
+# ESLint runs directly rather than through the consumer's `lint` script: that
+# script carries `--fix`, which rewrites files and reports success for anything
+# auto-fixable — exactly what CI must not do.
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node major version to lint against.
+        required: false
+        type: string
+        default: "24"
+
+permissions: {}
+
+jobs:
+  eslint:
+    name: ESLint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: roquerodrigo/workflows/actions/setup-node@main
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Check lint rules
+        run: npx eslint

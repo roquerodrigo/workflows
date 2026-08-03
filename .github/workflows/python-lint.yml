@@ -1,0 +1,61 @@
+name: Python lint
+
+on:
+  workflow_call:
+    inputs:
+      python-version:
+        description: Interpreter version to lint against.
+        required: false
+        type: string
+        default: "3.14"
+      groups:
+        description: Space-separated dependency groups to sync.
+        required: false
+        type: string
+        default: dev lint
+
+permissions: {}
+
+jobs:
+  ruff:
+    name: Ruff
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: roquerodrigo/workflows/actions/setup-python@main
+        with:
+          python-version: ${{ inputs.python-version }}
+          groups: ${{ inputs.groups }}
+
+      - name: Check lint rules
+        run: uv run ruff check .
+
+      - name: Check formatting
+        run: uv run ruff format --check .
+
+  mypy:
+    name: Mypy
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Python
+        uses: roquerodrigo/workflows/actions/setup-python@main
+        with:
+          python-version: ${{ inputs.python-version }}
+          groups: ${{ inputs.groups }}
+
+      # The target is configured through `[tool.mypy] files` in the consumer's
+      # pyproject.toml, so local runs and CI check exactly the same paths.
+      - name: Check types
+        run: uv run mypy

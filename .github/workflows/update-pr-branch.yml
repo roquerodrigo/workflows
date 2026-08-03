@@ -1,0 +1,29 @@
+name: Update pull request branch
+
+# Rebases the pull request branch onto the latest default branch so it never
+# falls behind. Skipped on drafts and on forks, which have no write access
+# through the default token.
+
+on:
+  workflow_call:
+
+permissions: {}
+
+jobs:
+  update:
+    name: Update pull request branch
+    if: |
+      github.event.pull_request.draft == false &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Rebase onto the base branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: gh pr update-branch "$NUMBER" --rebase || true

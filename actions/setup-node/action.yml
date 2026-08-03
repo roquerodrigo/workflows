@@ -1,0 +1,28 @@
+name: Set up Node
+description: Provisions Node with an npm cache and installs the locked dependencies.
+
+inputs:
+  node-version:
+    description: Node major version to provision.
+    required: false
+    default: "24"
+  install:
+    description: Whether to run `npm ci` after provisioning.
+    required: false
+    default: "true"
+
+runs:
+  using: composite
+  steps:
+    - name: Provision Node
+      uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        cache: npm
+
+    # `npm ci` is load-bearing beyond installing: it fails outright when the
+    # lockfile and the manifest disagree, which `npm install` papers over.
+    - name: Install dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      run: npm ci

@@ -1,0 +1,41 @@
+name: Node tests
+
+# Coverage thresholds live in the consumer's own test runner configuration, so a
+# local run and CI agree on what passing means.
+
+on:
+  workflow_call:
+    inputs:
+      node-version:
+        description: Node major version to test against.
+        required: false
+        type: string
+        default: "24"
+      script:
+        description: npm script that runs the suite.
+        required: false
+        type: string
+        default: test
+
+permissions: {}
+
+jobs:
+  test:
+    name: Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: roquerodrigo/workflows/actions/setup-node@main
+        with:
+          node-version: ${{ inputs.node-version }}
+
+      - name: Run the test suite
+        env:
+          SCRIPT: ${{ inputs.script }}
+        run: npm run "$SCRIPT"
