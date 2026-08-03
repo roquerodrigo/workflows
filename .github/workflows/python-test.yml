@@ -23,6 +23,8 @@ permissions: {}
 jobs:
   pytest:
     name: Pytest
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:

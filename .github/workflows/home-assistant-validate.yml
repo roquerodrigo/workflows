@@ -35,6 +35,8 @@ jobs:
   hassfest:
     name: Hassfest validation
     if: inputs.hassfest
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -49,6 +51,8 @@ jobs:
   hacs:
     name: HACS validation
     if: inputs.hacs
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -69,6 +73,8 @@ jobs:
     # manual edit that touches only one.
     name: Version check
     if: inputs.version-check
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:

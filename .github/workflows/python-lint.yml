@@ -19,6 +19,8 @@ permissions: {}
 jobs:
   ruff:
     name: Ruff
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -41,6 +43,8 @@ jobs:
 
   mypy:
     name: Mypy
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
