@@ -9,7 +9,8 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
+      prefix: "deps"
+      include: "scope"
     groups:
       actions:
         patterns: ["*"]
@@ -22,7 +23,9 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
+      prefix: "deps"
+
+      include: "scope"
 
   - package-ecosystem: github-actions
     directory: /actions/setup-node
@@ -32,4 +35,5 @@ updates:
     cooldown:
       default-days: 7
     commit-message:
-      prefix: "chore"
+      prefix: "deps"
+      include: "scope"
