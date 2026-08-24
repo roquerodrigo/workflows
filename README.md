@@ -25,6 +25,7 @@ actions/                          composite actions — the shared setup steps
 ├── sync-uv-lock.yml              uv.lock refresh on the release branch
 ├── publish-pypi.yml              build and upload to PyPI
 ├── publish-hacs-zip.yml          attach the HACS install zip to the release
+├── publish-hacs-plugin.yml       attach the HACS card bundle to the release
 ├── publish-npm.yml               build and publish to npm
 ├── auto-assign.yml               assign unassigned issues and pull requests
 └── update-pr-branch.yml          rebase the pull request onto its base
@@ -135,6 +136,20 @@ A private integration cannot run HACS validation, which reads the repository
 through the public API — pass `hacs: false`. A Lovelace card has no manifest and
 no Python package — pass `hassfest: false`, `version-check: false` and
 `hacs-category: plugin`.
+
+A card also releases its asset differently. There is no directory to package, so
+it composes `publish-hacs-plugin.yml` instead, naming the bundle that
+`hacs.json` already points at:
+
+```yaml
+  publish:
+    needs: release
+    if: needs.release.outputs.release-created == 'true'
+    uses: roquerodrigo/workflows/.github/workflows/publish-hacs-plugin.yml@main
+    with:
+      filename: <card>.js
+      ref: ${{ needs.release.outputs.tag-name }}
+```
 
 ### Python SDK
 
