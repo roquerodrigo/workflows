@@ -48,19 +48,21 @@ jobs:
           ref: ${{ inputs.ref }}
           persist-credentials: false
 
+      # `git archive` on the domain subtree writes the files at the root of the
+      # archive, which is the layout HACS extracts, and it packages the tracked
+      # tree rather than the working directory — no __pycache__, no stray file.
       - name: Package the integration
         env:
           DOMAIN: ${{ inputs.domain }}
           FILENAME: ${{ inputs.filename || format('{0}.zip', inputs.domain) }}
         run: |
           set -euo pipefail
-          source_dir="custom_components/$DOMAIN"
-          if [ ! -f "$source_dir/manifest.json" ]; then
-            echo "$source_dir does not look like an integration: no manifest.json" >&2
+          tree="HEAD:custom_components/$DOMAIN"
+          if ! git cat-file -e "$tree/manifest.json" 2>/dev/null; then
+            echo "custom_components/$DOMAIN does not look like an integration: no manifest.json" >&2
             exit 1
           fi
-          cd "$source_dir"
-          zip --recurse-paths "$RUNNER_TEMP/$FILENAME" . --exclude '*__pycache__*'
+          git archive --format=zip --output "$RUNNER_TEMP/$FILENAME" "$tree"
 
       - name: Attach the asset to the release
         env:
