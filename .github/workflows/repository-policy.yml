@@ -1,14 +1,16 @@
-name: Branch protection
+name: Repository policy
 
-# Branch protection does not drift on its own — it goes missing. A repository
-# created after the convention was agreed simply never receives it, which is how
-# three integrations ended up with an unprotected default branch while their
-# siblings required seven checks. A weekly reconcile closes that gap without
-# anyone having to notice it, and the run summary names every public repository
-# that is not declared yet, so a new one surfaces instead of staying invisible.
+# Neither branch protection nor the merge settings drift on their own — they go
+# missing. A repository created after a convention was agreed simply never
+# receives it, which is how three integrations ended up with an unprotected
+# default branch, three others with secret scanning off, and three still
+# accepting a squash merge the release tooling does not expect. A weekly
+# reconcile closes that gap without anyone having to notice it, and the run
+# summary names every public repository that is not declared yet, so a new one
+# surfaces instead of staying invisible.
 #
 # The schedule applies. A manual run only reports unless `apply` is ticked, which
-# is how a change to branch-protection.json gets reviewed before it lands.
+# is how a change to repository-policy.json gets reviewed before it lands.
 
 on:
   schedule:
@@ -45,4 +47,4 @@ jobs:
         run: |
           set -euo pipefail
           # shellcheck disable=SC2086
-          python3 scripts/reconcile-branch-protection.py $APPLY | tee -a "$GITHUB_STEP_SUMMARY"
+          python3 scripts/reconcile-repository-policy.py $APPLY | tee -a "$GITHUB_STEP_SUMMARY"

@@ -29,22 +29,26 @@ actions/                          composite actions — the shared setup steps
 ├── publish-npm.yml               build and publish to npm
 ├── auto-assign.yml               assign unassigned issues and pull requests
 ├── update-pr-branch.yml          rebase the pull request onto its base
-└── branch-protection.yml         reconcile branch protection across the account
+└── repository-policy.yml         reconcile settings and protection account-wide
 
 scripts/
-└── reconcile-branch-protection.py
+└── reconcile-repository-policy.py
 
-branch-protection.json            desired branch protection, by profile
+repository-policy.json            desired settings and branch protection
 ```
 
-`branch-protection.yml` is the one workflow here that is not called by anyone:
-it runs on a schedule in this repository and administers the others. Branch
-protection does not drift, it goes missing — a repository created after the
-convention was agreed never receives it — so the reconcile also lists every
-public repository absent from `branch-protection.json`, which is what makes a
-new one visible. The schedule applies; a manual run reports unless `apply` is
-ticked. It needs `BRANCH_PROTECTION_PAT`, a token with `repo` scope, because the
-default `GITHUB_TOKEN` cannot reach outside this repository.
+`repository-policy.yml` is the one workflow here that is not called by anyone:
+it runs on a schedule in this repository and administers the others. It covers
+two things that never drift but do go missing — the merge settings (rebase only,
+auto-merge, branch deletion, secret scanning and its push protection) and branch
+protection itself. A repository created after a convention was agreed never
+receives it, so the reconcile also lists every public repository absent from
+`repository-policy.json`, which is what makes a new one visible. Forks and
+scratch repositories are meant to be absent and are never touched.
+
+The schedule applies; a manual run reports unless `apply` is ticked. It needs
+`BRANCH_PROTECTION_PAT`, a token with `repo` scope, because the default
+`GITHUB_TOKEN` cannot reach outside this repository.
 
 Workflows are named after the ecosystem they serve, not the consumer that calls
 them: linting a Python SDK and linting an integration are the same job, so they
