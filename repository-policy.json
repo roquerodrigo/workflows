@@ -1,6 +1,19 @@
 {
-  "$comment": "Desired branch protection for every repository this account owns. Applied by .github/workflows/branch-protection.yml. A repository absent from `repositories` is reported, never touched: forks and scratch repositories are meant to stay unprotected.",
-  "defaults": {
+  "$comment": "Desired repository policy for every repository this account owns. Applied by .github/workflows/repository-policy.yml. A repository absent from `repositories` is reported, never touched: forks and scratch repositories are meant to stay as they are.",
+  "settings": {
+    "$comment": "Rebase is the only merge method, so the linear history the release tooling assumes cannot be broken by a stray squash. Push protection refuses a commit carrying a credential instead of reporting it once it is already public.",
+    "allow_merge_commit": false,
+    "allow_squash_merge": false,
+    "allow_rebase_merge": true,
+    "allow_auto_merge": true,
+    "delete_branch_on_merge": true,
+    "allow_update_branch": true,
+    "has_wiki": false,
+    "has_projects": false,
+    "secret_scanning": "enabled",
+    "secret_scanning_push_protection": "enabled"
+  },
+  "protection_defaults": {
     "strict": false,
     "require_pull_request": true,
     "enforce_admins": false,
@@ -43,10 +56,15 @@
       ]
     },
     "reusable-workflows": {
-      "checks": ["Actionlint", "Zizmor"]
+      "checks": [
+        "Actionlint",
+        "Zizmor"
+      ]
     },
     "static-site": {
-      "checks": ["Build"]
+      "checks": [
+        "Build"
+      ]
     }
   },
   "repositories": {
@@ -62,7 +80,6 @@
     "ha-tuya-ble": "ha-integration",
     "ha-tuya-ipc-p2p": "ha-integration",
     "ha-xiaomi-vacuum": "ha-integration",
-
     "midea-dishwasher-api": "python-sdk",
     "neakasa-litterbox-sdk": "python-sdk",
     "tplink-deco-api": "python-sdk",
@@ -70,9 +87,7 @@
     "tuya-ble-sdk": "python-sdk",
     "tuya-ipc-p2p-sdk": "python-sdk",
     "xiaomi-vacuum-sdk": "python-sdk",
-
     "ha-battery-card": "lovelace-card",
-
     "fitdays-mcp-server": "npm-package",
     "fitdays-api": {
       "profile": "npm-package",
@@ -83,17 +98,23 @@
         "codeql / Analyze (javascript)"
       ]
     },
-
     "workflows": "reusable-workflows",
     "glass-icons": "static-site",
-
     "transporte-sp": {
       "$comment": "The dataset is regenerated from the sources, so a pull request must be rebuilt against the branch it lands on.",
-      "checks": ["pipeline", "dataset", "site", "generated-content-is-current"],
+      "checks": [
+        "pipeline",
+        "dataset",
+        "site",
+        "generated-content-is-current"
+      ],
       "strict": true
     },
     "transporte-sp-origem-destino": {
-      "checks": ["pipeline", "site"],
+      "checks": [
+        "pipeline",
+        "site"
+      ],
       "strict": true
     }
   }
