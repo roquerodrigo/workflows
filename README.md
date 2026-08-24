@@ -24,6 +24,7 @@ actions/                          composite actions — the shared setup steps
 ├── release-please.yml            release pull request and tagging
 ├── sync-uv-lock.yml              uv.lock refresh on the release branch
 ├── publish-pypi.yml              build and upload to PyPI
+├── publish-hacs-zip.yml          attach the HACS install zip to the release
 ├── publish-npm.yml               build and publish to npm
 ├── auto-assign.yml               assign unassigned issues and pull requests
 └── update-pr-branch.yml          rebase the pull request onto its base
@@ -105,10 +106,30 @@ jobs:
     uses: roquerodrigo/workflows/.github/workflows/release-please.yml@main
     secrets:
       release-token: ${{ secrets.RELEASE_PLEASE_PAT }}
+
+  publish:
+    needs: release
+    if: needs.release.outputs.release-created == 'true'
+    uses: roquerodrigo/workflows/.github/workflows/publish-hacs-zip.yml@main
+    with:
+      domain: <domain>
+      ref: ${{ needs.release.outputs.tag-name }}
 ```
 
 The `workflow_run.event == 'push'` half of that condition is what stops a pull
 request with green CI from cutting a release.
+
+`publish-hacs-zip.yml` packages `custom_components/<domain>/` and attaches it to
+the tag. It only pays off alongside `hacs.json`:
+
+```json
+{ "zip_release": true, "filename": "<domain>.zip" }
+```
+
+Without both halves HACS keeps installing file by file, and the release's
+`download_count` — the only per-repository usage figure there is — stays at
+zero. The analytics Home Assistant publishes are keyed by domain, so a fork and
+the project it forked from report as one.
 
 A private integration cannot run HACS validation, which reads the repository
 through the public API — pass `hacs: false`. A Lovelace card has no manifest and
