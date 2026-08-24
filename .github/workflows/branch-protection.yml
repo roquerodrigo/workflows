@@ -1,0 +1,48 @@
+name: Branch protection
+
+# Branch protection does not drift on its own — it goes missing. A repository
+# created after the convention was agreed simply never receives it, which is how
+# three integrations ended up with an unprotected default branch while their
+# siblings required seven checks. A weekly reconcile closes that gap without
+# anyone having to notice it, and the run summary names every public repository
+# that is not declared yet, so a new one surfaces instead of staying invisible.
+#
+# The schedule applies. A manual run only reports unless `apply` is ticked, which
+# is how a change to branch-protection.json gets reviewed before it lands.
+
+on:
+  schedule:
+    - cron: "0 5 * * 1"
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: Write the changes instead of only reporting them.
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+jobs:
+  reconcile:
+    name: Reconcile branch protection
+    permissions:
+      contents: read
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out the configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Reconcile
+        env:
+          # The default GITHUB_TOKEN is scoped to this repository alone and
+          # cannot administer the others.
+          GITHUB_TOKEN: ${{ secrets.BRANCH_PROTECTION_PAT }}
+          APPLY: ${{ (github.event_name == 'schedule' || inputs.apply) && '--apply' || '' }}
+        run: |
+          set -euo pipefail
+          # shellcheck disable=SC2086
+          python3 scripts/reconcile-branch-protection.py $APPLY | tee -a "$GITHUB_STEP_SUMMARY"

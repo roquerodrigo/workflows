@@ -28,8 +28,23 @@ actions/                          composite actions — the shared setup steps
 ├── publish-hacs-plugin.yml       attach the HACS card bundle to the release
 ├── publish-npm.yml               build and publish to npm
 ├── auto-assign.yml               assign unassigned issues and pull requests
-└── update-pr-branch.yml          rebase the pull request onto its base
+├── update-pr-branch.yml          rebase the pull request onto its base
+└── branch-protection.yml         reconcile branch protection across the account
+
+scripts/
+└── reconcile-branch-protection.py
+
+branch-protection.json            desired branch protection, by profile
 ```
+
+`branch-protection.yml` is the one workflow here that is not called by anyone:
+it runs on a schedule in this repository and administers the others. Branch
+protection does not drift, it goes missing — a repository created after the
+convention was agreed never receives it — so the reconcile also lists every
+public repository absent from `branch-protection.json`, which is what makes a
+new one visible. The schedule applies; a manual run reports unless `apply` is
+ticked. It needs `BRANCH_PROTECTION_PAT`, a token with `repo` scope, because the
+default `GITHUB_TOKEN` cannot reach outside this repository.
 
 Workflows are named after the ecosystem they serve, not the consumer that calls
 them: linting a Python SDK and linting an integration are the same job, so they
