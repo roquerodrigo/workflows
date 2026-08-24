@@ -1,0 +1,100 @@
+{
+  "$comment": "Desired branch protection for every repository this account owns. Applied by .github/workflows/branch-protection.yml. A repository absent from `repositories` is reported, never touched: forks and scratch repositories are meant to stay unprotected.",
+  "defaults": {
+    "strict": false,
+    "require_pull_request": true,
+    "enforce_admins": false,
+    "allow_force_pushes": false,
+    "allow_deletions": false
+  },
+  "profiles": {
+    "ha-integration": {
+      "checks": [
+        "lint / Ruff",
+        "lint / Mypy",
+        "tests / Pytest",
+        "validate / Hassfest validation",
+        "validate / HACS validation",
+        "validate / Version check",
+        "codeql / Analyze (python)"
+      ]
+    },
+    "python-sdk": {
+      "checks": [
+        "lint / Ruff",
+        "lint / Mypy",
+        "tests / Pytest",
+        "codeql / Analyze (python)"
+      ]
+    },
+    "lovelace-card": {
+      "$comment": "A card has no manifest and no Python package, so hassfest and the version check are skipped rather than run.",
+      "checks": [
+        "JavaScript syntax",
+        "validate / HACS validation",
+        "codeql / Analyze (javascript)"
+      ]
+    },
+    "npm-package": {
+      "checks": [
+        "lint / ESLint",
+        "build / Build",
+        "codeql / Analyze (javascript)"
+      ]
+    },
+    "reusable-workflows": {
+      "checks": ["Actionlint", "Zizmor"]
+    },
+    "static-site": {
+      "checks": ["Build"]
+    }
+  },
+  "repositories": {
+    "ha-integration-blueprint": "ha-integration",
+    "ha-docker-monitor": "ha-integration",
+    "ha-homekit-secure-video": "ha-integration",
+    "ha-metro-sp": "ha-integration",
+    "ha-midea-dishwasher": "ha-integration",
+    "ha-neakasa-litterbox": "ha-integration",
+    "ha-samsung-climate-ir": "ha-integration",
+    "ha-tplink-deco": "ha-integration",
+    "ha-ttlock-ble": "ha-integration",
+    "ha-tuya-ble": "ha-integration",
+    "ha-tuya-ipc-p2p": "ha-integration",
+    "ha-xiaomi-vacuum": "ha-integration",
+
+    "midea-dishwasher-api": "python-sdk",
+    "neakasa-litterbox-sdk": "python-sdk",
+    "tplink-deco-api": "python-sdk",
+    "ttlock-ble": "python-sdk",
+    "tuya-ble-sdk": "python-sdk",
+    "tuya-ipc-p2p-sdk": "python-sdk",
+    "xiaomi-vacuum-sdk": "python-sdk",
+
+    "ha-battery-card": "lovelace-card",
+
+    "fitdays-mcp-server": "npm-package",
+    "fitdays-api": {
+      "profile": "npm-package",
+      "checks": [
+        "lint / ESLint",
+        "build / Build",
+        "tests / Test",
+        "codeql / Analyze (javascript)"
+      ]
+    },
+
+    "workflows": "reusable-workflows",
+    "glass-icons": "static-site",
+
+    "transporte-sp": {
+      "$comment": "The dataset is regenerated from the sources, so a pull request must be rebuilt against the branch it lands on.",
+      "checks": ["pipeline", "dataset", "site", "generated-content-is-current"],
+      "strict": true
+    },
+    "transporte-sp-origem-destino": {
+      "checks": ["pipeline", "site"],
+      "strict": true
+    }
+  }
+}
