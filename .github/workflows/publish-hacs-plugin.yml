@@ -1,0 +1,52 @@
+name: Publish the HACS plugin asset
+
+# The card counterpart of publish-hacs-zip.yml. A Lovelace card ships a single
+# JavaScript bundle rather than a directory, so there is nothing to package:
+# HACS downloads the file named by `filename` in `hacs.json`, preferring a
+# release asset over the file in the repository. Attaching it is what turns the
+# release's `download_count` into the install counter — without the asset the
+# download happens through the GitHub contents API and is counted nowhere.
+
+on:
+  workflow_call:
+    inputs:
+      filename:
+        description: >-
+          Bundle to attach, relative to the repository root. Must match
+          `filename` in `hacs.json`, or HACS will not find it.
+        required: true
+        type: string
+      ref:
+        description: Tag to read the bundle from and attach the asset to.
+        required: true
+        type: string
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish the HACS plugin asset
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the released ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Attach the bundle to the release
+        env:
+          FILENAME: ${{ inputs.filename }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ inputs.ref }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$FILENAME" ]; then
+            echo "$FILENAME is not in the repository at $TAG" >&2
+            exit 1
+          fi
+          gh release upload "$TAG" "$FILENAME" --clobber --repo "$REPOSITORY"
