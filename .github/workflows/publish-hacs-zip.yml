@@ -1,0 +1,71 @@
+name: Publish the HACS zip
+
+# HACS installs an integration one file at a time through the GitHub API unless
+# the repository ships a zip asset, and those per-file reads are counted
+# nowhere. Attaching the asset — and declaring `zip_release` in `hacs.json` —
+# makes the release's `download_count` the install counter, which is the only
+# per-repository usage figure available: the analytics that Home Assistant
+# publishes are keyed by integration domain, so a fork shares its numbers with
+# the project it forked from.
+#
+# The asset carries the contents of `custom_components/<domain>/` at its root,
+# with no directory prefix: HACS extracts it straight into the domain folder.
+
+on:
+  workflow_call:
+    inputs:
+      domain:
+        description: >-
+          Integration domain — the directory under `custom_components/` that is
+          packaged, and the default asset name.
+        required: true
+        type: string
+      ref:
+        description: Tag to package and attach the asset to.
+        required: true
+        type: string
+      filename:
+        description: >-
+          Asset name. Must match `filename` in `hacs.json`. Defaults to
+          `<domain>.zip`.
+        required: false
+        type: string
+        default: ""
+
+permissions: {}
+
+jobs:
+  publish:
+    name: Publish the HACS zip
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out the released ref
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.ref }}
+          persist-credentials: false
+
+      - name: Package the integration
+        env:
+          DOMAIN: ${{ inputs.domain }}
+          FILENAME: ${{ inputs.filename || format('{0}.zip', inputs.domain) }}
+        run: |
+          set -euo pipefail
+          source_dir="custom_components/$DOMAIN"
+          if [ ! -f "$source_dir/manifest.json" ]; then
+            echo "$source_dir does not look like an integration: no manifest.json" >&2
+            exit 1
+          fi
+          cd "$source_dir"
+          zip --recurse-paths "$RUNNER_TEMP/$FILENAME" . --exclude '*__pycache__*'
+
+      - name: Attach the asset to the release
+        env:
+          FILENAME: ${{ inputs.filename || format('{0}.zip', inputs.domain) }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          TAG: ${{ inputs.ref }}
+        run: gh release upload "$TAG" "$RUNNER_TEMP/$FILENAME" --clobber --repo "$REPOSITORY"
