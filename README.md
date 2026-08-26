@@ -27,7 +27,7 @@ actions/                          composite actions — the shared setup steps
 ├── publish-hacs-zip.yml          attach the HACS install zip to the release
 ├── publish-hacs-plugin.yml       attach the HACS card bundle to the release
 ├── publish-npm.yml               build and publish to npm
-├── auto-assign.yml               assign unassigned issues and pull requests
+├── auto-assign.yml               assign the maintainer and the author
 ├── update-pr-branch.yml          rebase the pull request onto its base
 └── repository-policy.yml         reconcile settings and protection account-wide
 
