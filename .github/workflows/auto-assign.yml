@@ -4,12 +4,16 @@ name: Auto-assign
 # triggered the run. A pull request opened by an Action with the default token
 # produces a run stuck in "awaiting approval" that never starts on its own; the
 # scheduled sweep in the caller is what picks those up.
+#
+# Both the maintainer and the author are assigned. GitHub silently drops an
+# assignee without access to the repository, so an outside author simply falls
+# away; bot authors are skipped outright because they can never be assigned.
 
 on:
   workflow_call:
     inputs:
       assignee:
-        description: Login to assign unassigned issues and pull requests to.
+        description: Login assigned to every unassigned issue and pull request.
         required: false
         type: string
         default: roquerodrigo
@@ -18,7 +22,7 @@ permissions: {}
 
 jobs:
   assign:
-    name: Assign @${{ inputs.assignee }}
+    name: Assign @${{ inputs.assignee }} and the author
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -33,9 +37,18 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/${REPOSITORY}/issues?state=open&per_page=100" --paginate \
-            --jq '.[] | select(.assignees | length == 0) | .number' |
-            while read -r number; do
+            --jq '.[] | select(.assignees | length == 0) | "\(.number) \(.user.login)"' |
+            while read -r number author; do
+              logins=("${ASSIGNEE}")
+              case "${author}" in
+                "${ASSIGNEE}" | *"[bot]") ;;
+                *) logins+=("${author}") ;;
+              esac
+              fields=()
+              for login in "${logins[@]}"; do
+                fields+=(-f "assignees[]=${login}")
+              done
               gh api --method POST "repos/${REPOSITORY}/issues/${number}/assignees" \
-                -f "assignees[]=${ASSIGNEE}" --silent
-              echo "Assigned #${number} to ${ASSIGNEE}"
+                "${fields[@]}" --silent
+              echo "Assigned #${number} to ${logins[*]}"
             done
