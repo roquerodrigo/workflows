@@ -1,5 +1,7 @@
 # workflows
 
+[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-db61a2?logo=githubsponsors&logoColor=white&style=for-the-badge)](https://github.com/sponsors/roquerodrigo)
+
 Reusable GitHub Actions workflows and composite actions shared across Home
 Assistant integrations, Python SDKs, npm packages and Lovelace cards.
 
@@ -228,3 +230,7 @@ reusable one.
 - Coverage thresholds and lint targets live in the consumer's own configuration
   (`pyproject.toml`, the test runner config), never as workflow inputs, so a
   local run and CI agree on what passing means.
+
+## Support
+
+This collection is built and maintained on personal time. If it is useful to you, consider [sponsoring the work](https://github.com/sponsors/roquerodrigo) — it keeps the development, the testing and the releases coming.
