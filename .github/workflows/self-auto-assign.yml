@@ -23,4 +23,7 @@ jobs:
     permissions:
       issues: write
       pull-requests: write
-    uses: ./.github/workflows/auto-assign.yml
+    # zizmor prefers the `$/` self-repository form, but actionlint (v1.7.12)
+    # rejects it as an invalid reusable workflow reference. Keep the
+    # workspace-relative form until actionlint learns the new syntax.
+    uses: ./.github/workflows/auto-assign.yml # zizmor: ignore[self-repository]
