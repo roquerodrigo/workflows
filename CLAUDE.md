@@ -37,6 +37,22 @@ Reproduce it locally before opening a PR:
   `version-check` inputs) because private integrations and Lovelace cards can't run
   the full set — see the header comment there.
 
+## Repository policy (a second, unrelated job this repo does)
+
+Besides the reusable workflows, this repo reconciles branch protection and
+repository settings across **every repo the account owns**, weekly.
+`repository-policy.json` is the declared desired state (its `$comment` fields are
+the rationale); `scripts/reconcile-repository-policy.py` applies it via
+`repository-policy.yml`. Gotchas:
+
+- Scheduled runs **apply**; a manual `workflow_dispatch` only **reports** unless
+  the `apply` input is ticked — so a change to `repository-policy.json` gets
+  reviewed against the report before it lands.
+- Needs a PAT (`secrets.BRANCH_PROTECTION_PAT`); the default `GITHUB_TOKEN` is
+  scoped to this repo alone and cannot administer the others.
+- A repo **absent** from the config's `repositories` list is reported, never
+  touched (forks and scratch repos stay as they are).
+
 ## Git
 
 Public repo with branch protection: work on a feature branch, open a PR, let CI go
