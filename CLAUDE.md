@@ -7,11 +7,13 @@ patterns and conventions — read it before changing a workflow's interface.
 
 ## The one constraint that governs every change
 
-There are no version tags. Callers reference `@main`, so **a merge here is live in
-every consumer on its next run**. A breaking change breaks everyone at once. Treat
-input names, defaults, secret names and output names as a public contract: rename
-or remove one only when you have checked the consumers, and prefer adding an
-optional input over changing an existing one.
+The account's own callers reference `@main`, so **a merge here is live in every
+consumer on its next run**. Releases exist (`self-release.yml`, release-please,
+`vX.Y.Z` tags) for outside users who pin, but they protect nobody in-house. A
+breaking change breaks everyone at once. Treat input names, defaults, secret
+names and output names as a public contract: rename or remove one only when you
+have checked the consumers, and prefer adding an optional input over changing an
+existing one.
 
 ## Verifying a change
 

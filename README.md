@@ -31,7 +31,8 @@ actions/                          composite actions — the shared setup steps
 ├── publish-npm.yml               build and publish to npm
 ├── auto-assign.yml               assign the maintainer and the author
 ├── update-pr-branch.yml          rebase the pull request onto its base
-└── repository-policy.yml         reconcile settings and protection account-wide
+├── repository-policy.yml         reconcile settings and protection account-wide
+└── self-*.yml                    this repository's own callers: CI, release, auto-assign
 
 scripts/
 └── reconcile-repository-policy.py
@@ -59,14 +60,26 @@ share `python-lint.yml`. Only genuinely domain-specific behaviour —
 
 ## Versioning
 
-There are no tags. Callers reference `@main` and pick up every change on their
-next run.
+Releases are cut by release-please from the conventional commits on `main`, and
+each one is a `vX.Y.Z` tag with its notes in `CHANGELOG.md`. A change to an
+input, a default, a secret name or an output that breaks a caller is a major
+bump.
 
-That trades a pinning ritual for a stronger contract on this side: the workflows
-here are linted with `actionlint` and audited with `zizmor` on every pull
-request, `main` is protected, and Dependabot keeps the pinned action digests
-current. A breaking change is a breaking change everywhere at once, so it does
-not get merged.
+The repositories this collection was built for reference `@main` and pick up
+every change on their next run. That trades a pinning ritual for a stronger
+contract on this side: the workflows here are linted with `actionlint` and
+audited with `zizmor` on every pull request, `main` is protected, and Dependabot
+keeps the pinned action digests current.
+
+Anyone else should pin a release, by tag or by the commit behind it:
+
+```yaml
+uses: roquerodrigo/workflows/.github/workflows/python-lint.yml@v1.0.0
+```
+
+A pinned workflow is not frozen all the way down. The Python and Node workflows
+load the composite actions under `actions/` from `@main`, so the setup steps
+keep tracking `main` whatever ref the caller pinned.
 
 ## Caller patterns
 
