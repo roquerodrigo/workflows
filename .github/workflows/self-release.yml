@@ -1,0 +1,21 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions: {}
+
+jobs:
+  release:
+    permissions:
+      contents: write
+      pull-requests: write
+    # Same workspace-relative form as self-auto-assign.yml, for the same reason.
+    uses: ./.github/workflows/release-please.yml # zizmor: ignore[self-repository]
+    secrets:
+      release-token: ${{ secrets.RELEASE_PLEASE_PAT }}
