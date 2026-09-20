@@ -1,5 +1,5 @@
 {
-  "$comment": "Desired repository policy for every repository this account owns. Applied by .github/workflows/repository-policy.yml. A repository absent from `repositories` is reported, never touched: forks and scratch repositories are meant to stay as they are.",
+  "$comment": "Desired repository policy for every repository this account owns. Applied by .github/workflows/repository-policy.yml. A repository absent from `repositories` and matching no entry in `patterns` is reported, never touched: forks and scratch repositories are meant to stay as they are.",
   "settings": {
     "$comment": "Rebase is the only merge method, so the linear history the release tooling assumes cannot be broken by a stray squash. Push protection refuses a commit carrying a credential instead of reporting it once it is already public.",
     "allow_merge_commit": false,
@@ -67,19 +67,27 @@
       ]
     }
   },
+  "patterns": {
+    "$comment": "A public, unarchived, non-fork repository whose name matches a glob gets that entry without being listed, so a new integration is protected from its first weekly run. An explicit entry in `repositories` always wins; `null` there opts a matching repository out.",
+    "ha-*": "ha-integration"
+  },
   "repositories": {
-    "ha-integration-blueprint": "ha-integration",
-    "ha-docker-monitor": "ha-integration",
-    "ha-homekit-secure-video": "ha-integration",
-    "ha-metro-sp": "ha-integration",
-    "ha-midea-dishwasher": "ha-integration",
-    "ha-neakasa-litterbox": "ha-integration",
-    "ha-samsung-climate-ir": "ha-integration",
-    "ha-tplink-deco": "ha-integration",
-    "ha-ttlock-ble": "ha-integration",
-    "ha-tuya-ble": "ha-integration",
-    "ha-tuya-ipc-p2p": "ha-integration",
-    "ha-xiaomi-vacuum": "ha-integration",
+    "ha-battery-card": "lovelace-card",
+    "ha-integration-dev-skill": null,
+    "ha-correios": {
+      "$comment": "Ships a Lovelace card next to the integration, so the card's syntax check is required on top of the profile.",
+      "profile": "ha-integration",
+      "checks": [
+        "lint / Ruff",
+        "lint / Mypy",
+        "tests / Pytest",
+        "validate / Hassfest validation",
+        "validate / HACS validation",
+        "validate / Version check",
+        "codeql / Analyze (python)",
+        "card-syntax"
+      ]
+    },
     "midea-dishwasher-api": "python-sdk",
     "neakasa-litterbox-sdk": "python-sdk",
     "tplink-deco-api": "python-sdk",
@@ -87,7 +95,6 @@
     "tuya-ble-sdk": "python-sdk",
     "tuya-ipc-p2p-sdk": "python-sdk",
     "xiaomi-vacuum-sdk": "python-sdk",
-    "ha-battery-card": "lovelace-card",
     "fitdays-mcp-server": "npm-package",
     "fitdays-api": {
       "profile": "npm-package",

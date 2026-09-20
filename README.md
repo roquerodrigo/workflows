@@ -49,6 +49,12 @@ receives it, so the reconcile also lists every public repository absent from
 `repository-policy.json`, which is what makes a new one visible. Forks and
 scratch repositories are meant to be absent and are never touched.
 
+Home Assistant integrations are not listed one by one: the `patterns` block maps
+`ha-*` to the `ha-integration` profile, so a new public integration is picked up
+on the next run. An explicit entry in `repositories` always wins over a pattern
+(`ha-battery-card` is a card, not an integration), and `null` there opts a
+matching repository out.
+
 The schedule applies; a manual run reports unless `apply` is ticked. It needs
 `BRANCH_PROTECTION_PAT`, a token with `repo` scope, because the default
 `GITHUB_TOKEN` cannot reach outside this repository.

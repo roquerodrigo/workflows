@@ -12,6 +12,7 @@ declared yet.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import sys
@@ -70,8 +71,32 @@ def actual_settings(repository: dict, wanted: dict) -> dict:
     return actual
 
 
-def desired_protection(config: dict, name: str) -> dict:
-    entry = config["repositories"][name]
+def is_candidate(repository: dict) -> bool:
+    return not repository["fork"] and not repository["archived"] and not repository["private"]
+
+
+def resolve_repositories(config: dict, owned: list[dict]) -> tuple[dict, dict[str, str]]:
+    """Expand `patterns` into entries, an explicit entry always winning.
+
+    A `null` entry opts a repository out of a pattern it would otherwise match.
+    """
+    explicit = {name: entry for name, entry in config["repositories"].items() if not name.startswith("$")}
+    patterns = {glob: entry for glob, entry in config.get("patterns", {}).items() if not glob.startswith("$")}
+    resolved = {name: entry for name, entry in explicit.items() if entry is not None}
+    matched: dict[str, str] = {}
+    for repository in owned:
+        name = repository["name"]
+        if name in explicit or not is_candidate(repository):
+            continue
+        for glob, entry in patterns.items():
+            if fnmatch.fnmatchcase(name, glob):
+                resolved[name], matched[name] = entry, glob
+                break
+    return resolved, matched
+
+
+def desired_protection(repositories: dict, config: dict, name: str) -> dict:
+    entry = repositories[name]
     entry = {"profile": entry} if isinstance(entry, str) else dict(entry)
     profile = config["profiles"].get(entry.pop("profile", None), {})
     state = {**config["protection_defaults"], "checks": profile.get("checks", [])}
@@ -146,8 +171,11 @@ def main() -> int:
     github = GitHub(token)
     owner = github.request("GET", "/user")["login"]
 
+    owned = github.owned_repositories()
+    repositories, matched = resolve_repositories(config, owned)
+
     protection_drift, settings_drift, failed = [], [], []
-    for name in sorted(config["repositories"]):
+    for name in sorted(repositories):
         repository = github.request("GET", f"/repos/{owner}/{name}")
         if repository is None:
             failed.append(f"{name}: repository not found")
@@ -169,7 +197,7 @@ def main() -> int:
 
         branch = repository["default_branch"]
         protection = github.request("GET", f"/repos/{owner}/{name}/branches/{branch}/protection")
-        desired = desired_protection(config, name)
+        desired = desired_protection(repositories, config, name)
         changed = differences(actual_protection(protection), desired, PROTECTION_KEYS)
         if changed:
             protection_drift.append((name, changed))
@@ -182,15 +210,17 @@ def main() -> int:
     declared = set(config["repositories"])
     undeclared = sorted(
         repository["name"]
-        for repository in github.owned_repositories()
-        if not repository["fork"] and not repository["archived"] and not repository["private"]
-        and repository["name"] not in declared
+        for repository in owned
+        if is_candidate(repository) and repository["name"] not in declared and repository["name"] not in matched
     )
 
     verb = "updated" if arguments.apply else "would update"
     print(f"## Repository policy ({'apply' if arguments.apply else 'report only'})")
     report("Settings", settings_drift, verb)
     report("Branch protection", protection_drift, verb)
+    if matched:
+        print(f"\n### Matched by pattern\n\n{len(matched)} repositories were picked up without being declared:\n")
+        print("\n".join(f"- {name} (`{glob}`)" for name, glob in sorted(matched.items())))
     if undeclared:
         print(f"\n### Not declared\n\n{len(undeclared)} public repositories were left untouched:\n")
         print("\n".join(f"- {name}" for name in undeclared))

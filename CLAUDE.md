@@ -52,8 +52,11 @@ the rationale); `scripts/reconcile-repository-policy.py` applies it via
   reviewed against the report before it lands.
 - Needs a PAT (`secrets.BRANCH_PROTECTION_PAT`); the default `GITHUB_TOKEN` is
   scoped to this repo alone and cannot administer the others.
-- A repo **absent** from the config's `repositories` list is reported, never
-  touched (forks and scratch repos stay as they are).
+- A repo **absent** from the config's `repositories` list and matching no glob in
+  `patterns` is reported, never touched (forks and scratch repos stay as they are).
+- `patterns` (`ha-*` → `ha-integration`) picks up public repos automatically. An
+  explicit `repositories` entry wins; `null` opts a matching repo out — a new
+  `ha-*` repo that is *not* an integration needs one before the next scheduled run.
 
 ## Git
 
