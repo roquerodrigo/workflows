@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.1.0](https://github.com/roquerodrigo/workflows/compare/v1.0.0...v1.1.0) (2026-09-23)
+
+
+### Features
+
+* **policy:** match Home Assistant repositories by pattern ([98e0a73](https://github.com/roquerodrigo/workflows/commit/98e0a732d3b6ce1a2339cba76af781d724afd7a8))
+
+
+### Dependencies
+
+* **deps:** bump astral-sh/setup-uv in /actions/setup-python ([4cea25a](https://github.com/roquerodrigo/workflows/commit/4cea25a28636f126e39c75dc370433a0adb4c95e))
+* **deps:** bump astral-sh/setup-uv in the actions group ([9b1afc2](https://github.com/roquerodrigo/workflows/commit/9b1afc26bb46dadc401beb56c6e218644b984421))
+
 ## 1.0.0 (2026-09-19)
 
 
