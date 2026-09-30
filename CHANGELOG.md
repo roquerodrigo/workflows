@@ -1,5 +1,34 @@
 # Changelog
 
+## [2.0.0](https://github.com/roquerodrigo/workflows/compare/v1.0.0...v2.0.0) (2026-09-30)
+
+
+### ⚠ BREAKING CHANGES
+
+* sync-uv-lock.yml is removed. Callers must declare uv.lock under extra-files in release-please-config.json instead.
+
+### Features
+
+* **policy:** match Home Assistant repositories by pattern ([98e0a73](https://github.com/roquerodrigo/workflows/commit/98e0a732d3b6ce1a2339cba76af781d724afd7a8))
+
+
+### Dependencies
+
+* **deps:** bump astral-sh/setup-uv in /actions/setup-python ([0a5af12](https://github.com/roquerodrigo/workflows/commit/0a5af127efebcebad56611a61c6c712c9c5e3b9e))
+* **deps:** bump astral-sh/setup-uv in /actions/setup-python ([4cea25a](https://github.com/roquerodrigo/workflows/commit/4cea25a28636f126e39c75dc370433a0adb4c95e))
+* **deps:** bump astral-sh/setup-uv in the actions group ([9b1afc2](https://github.com/roquerodrigo/workflows/commit/9b1afc26bb46dadc401beb56c6e218644b984421))
+* **deps:** bump the actions group across 1 directory with 3 updates ([61eb030](https://github.com/roquerodrigo/workflows/commit/61eb030634948569037063afd71061a4124d038a))
+
+
+### Build System
+
+* remove the sync-uv-lock workflow ([2c076d4](https://github.com/roquerodrigo/workflows/commit/2c076d4d5da1351c13f3cd0c0986d2b457ba4c1a))
+
+
+### Continuous Integration
+
+* **validate:** repin hassfest to the current master commit ([2f86913](https://github.com/roquerodrigo/workflows/commit/2f86913dcc3da51d0058ca9c88d221264b3d4373))
+
 ## 1.0.0 (2026-09-19)
 
 
