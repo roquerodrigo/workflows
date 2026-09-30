@@ -24,7 +24,6 @@ actions/                          composite actions — the shared setup steps
 ├── codeql.yml                    CodeQL, any language
 ├── home-assistant-validate.yml   hassfest, HACS, manifest/pyproject drift
 ├── release-please.yml            release pull request and tagging
-├── sync-uv-lock.yml              uv.lock refresh on the release branch
 ├── publish-pypi.yml              build and upload to PyPI
 ├── publish-hacs-zip.yml          attach the HACS install zip to the release
 ├── publish-hacs-plugin.yml       attach the HACS card bundle to the release
@@ -193,22 +192,13 @@ it composes `publish-hacs-plugin.yml` instead, naming the bundle that
 
 ### Python SDK
 
-CI is `python-lint.yml` plus `python-test.yml`. Release composes three
+CI is `python-lint.yml` plus `python-test.yml`. Release composes two
 workflows, so each stage stays independently readable:
 
 ```yaml
 jobs:
   release:
     uses: roquerodrigo/workflows/.github/workflows/release-please.yml@main
-    secrets:
-      release-token: ${{ secrets.RELEASE_PLEASE_PAT }}
-
-  sync-uv-lock:
-    needs: release
-    if: needs.release.outputs.release-pr != ''
-    uses: roquerodrigo/workflows/.github/workflows/sync-uv-lock.yml@main
-    with:
-      release-pr: ${{ needs.release.outputs.release-pr }}
     secrets:
       release-token: ${{ secrets.RELEASE_PLEASE_PAT }}
 
@@ -222,6 +212,25 @@ jobs:
     secrets:
       pypi-token: ${{ secrets.PYPI_API_TOKEN }}
 ```
+
+### uv.lock
+
+release-please ships no updater for `uv.lock`, so a project locked with uv —
+SDK or integration — declares the lock under `extra-files` in
+`release-please-config.json`, next to `pyproject.toml`:
+
+```json
+{
+  "type": "toml",
+  "path": "uv.lock",
+  "jsonpath": "$.package[?(@.name.value==\"<package-name>\")].version"
+}
+```
+
+The filter compares `@.name.value`, not `@.name`: release-please's TOML parser
+wraps every scalar in a `{ start, end, value }` node, and `@.name` alone never
+matches — release-please only logs `No entries modified` and leaves the lock on
+the previous version.
 
 ### npm package
 
