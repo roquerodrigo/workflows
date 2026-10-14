@@ -91,6 +91,7 @@
     "midea-dishwasher-api": "python-sdk",
     "neakasa-litterbox-sdk": "python-sdk",
     "tplink-deco-api": "python-sdk",
+    "tplink-deco-mcp-server": "python-sdk",
     "ttlock-ble": "python-sdk",
     "tuya-ble-sdk": "python-sdk",
     "tuya-ipc-p2p-sdk": "python-sdk",
