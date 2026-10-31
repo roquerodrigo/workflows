@@ -25,12 +25,12 @@ class ReleasePullRequestBodyTest(unittest.TestCase):
         self.assertEqual(body.heading, HEADING)
         self.assertEqual(body.previous_tag, "v1.9.0")
 
-    def test_replaces_only_the_notes(self):
+    def test_replaces_the_notes_and_leaves_out_the_banner(self):
         rewritten = ReleasePullRequestBody.parse(BODY).with_notes(f"{HEADING}\n\n- New text")
         self.assertIn("- New text", rewritten)
         self.assertNotIn("Miscellaneous Chores", rewritten)
-        self.assertTrue(rewritten.startswith(":robot:"))
-        self.assertTrue(rewritten.endswith("(https://github.com/googleapis/release-please)."))
+        self.assertNotIn(":robot:", rewritten)
+        self.assertNotIn("Release Please", rewritten)
 
     def test_rewriting_is_parsed_back_to_the_same_heading(self):
         rewritten = ReleasePullRequestBody.parse(BODY).with_notes(f"{HEADING}\n\n- New text")
