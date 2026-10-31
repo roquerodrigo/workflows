@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.2.0](https://github.com/roquerodrigo/workflows/compare/v2.1.0...v2.2.0) (2026-10-31)
+
+### New features
+
+- Rewritten release pull requests and published releases now end with a fixed sponsorship section in the language of the notes, kept out of CHANGELOG.md. ([#49](https://github.com/roquerodrigo/workflows/pull/49))
+
+### Bug fixes
+
+- Rewritten release pull requests no longer show the release-please banner above and below the notes; only the required delimiters remain. ([#48](https://github.com/roquerodrigo/workflows/pull/48))
+
 ## [2.1.0](https://github.com/roquerodrigo/workflows/compare/v2.0.0...v2.1.0) (2026-10-31)
 
 ### New features
