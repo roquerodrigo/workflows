@@ -17,12 +17,14 @@ existing one.
 
 ## Verifying a change
 
-CI (`self-ci.yml`) is the only test surface — there is no package manager here.
-Reproduce it locally before opening a PR:
+CI (`self-ci.yml`) is the only test surface. The one package manager here is the
+`uv` project in `actions/release-notes`. Reproduce CI locally before opening a PR:
 
 - `actionlint`
 - `uvx --from 'zizmor>=1,<2' zizmor --persona regular --min-severity low .`
   (needs `GH_TOKEN` set; audit policy lives in `zizmor.yml`)
+- In `actions/release-notes`: `uvx ruff check .`, `uvx ruff format --check .`,
+  `uv run --frozen --no-dev python -m unittest discover -s tests -t .`
 
 ## Conventions not obvious from a single file
 
