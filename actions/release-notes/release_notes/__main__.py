@@ -10,7 +10,7 @@ from release_notes.errors import NotEligibleError, StalePullRequestError
 from release_notes.github_client import GitHubClient
 from release_notes.pull_request_body import ReleasePullRequestBody
 from release_notes.release_branch import ReleaseBranch
-from release_notes.release_notes import ReleaseNotes
+from release_notes.release_notes import ReleaseNotes, support_section
 from release_notes.release_source import ReleaseSource, ReleaseSourceCollector
 
 
@@ -49,7 +49,8 @@ def preview(arguments: argparse.Namespace) -> None:
     pull_request = GitHubClient().get(f"repos/{source.repository}/pulls/{source.pull_request_number}")
     body = ReleasePullRequestBody.parse(pull_request["body"] or "")
     rendered = _rendered(source, body.heading, arguments.notes)
-    print(f"# {source.repository} #{source.pull_request_number} ({source.language})\n\n{rendered}")
+    published = f"{rendered}\n{support_section(source.language, source.repository)}"
+    print(f"# {source.repository} #{source.pull_request_number} ({source.language})\n\n{published}")
 
 
 def apply(arguments: argparse.Namespace) -> None:
@@ -73,7 +74,8 @@ def apply(arguments: argparse.Namespace) -> None:
         except StalePullRequestError as reason:
             print(f"::notice::Skipping: {reason}")
             return
-    github.update_pull_request_body(source.repository, source.pull_request_number, body.with_notes(rendered))
+    published = f"{rendered}\n{support_section(source.language, source.repository)}"
+    github.update_pull_request_body(source.repository, source.pull_request_number, body.with_notes(published))
 
 
 def _write_output(name: str, value: str) -> None:

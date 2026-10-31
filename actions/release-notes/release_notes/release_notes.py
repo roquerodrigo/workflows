@@ -14,6 +14,16 @@ NO_USER_FACING_CHANGES = {
     "en": "Internal maintenance only, with no changes for those who use the project.",
     "pt-BR": "Apenas manutenção interna, sem mudanças para quem usa o projeto.",
 }
+SUPPORT_SECTIONS = {
+    "en": (
+        "### Support\n\nThis project is built and maintained on personal time. If it is useful to you, consider "
+        "[sponsoring the work]({url}) — it keeps the development, the testing and the releases coming.\n"
+    ),
+    "pt-BR": (
+        "### Apoio\n\nEste projeto é desenvolvido e mantido em tempo pessoal. Se ele for útil para você, considere "
+        "[apoiar o trabalho]({url}) — isso mantém o desenvolvimento, os testes e os releases em andamento.\n"
+    ),
+}
 FORBIDDEN_MARKUP = re.compile(r"https?://|!\[|\]\(|<\s*/?\s*(details|summary)|(?<![\w.])@[\w-]+", re.IGNORECASE)
 
 
@@ -59,6 +69,11 @@ class ReleaseNotes:
             if lines:
                 blocks.append(f"### {TITLES[language][category]}\n\n" + "\n".join(lines))
         return "\n\n".join(blocks) + "\n"
+
+
+def support_section(language: str, repository: str) -> str:
+    owner = repository.split("/")[0]
+    return SUPPORT_SECTIONS[language].format(url=f"https://github.com/sponsors/{owner}")
 
 
 def _single_line(text: str) -> str:
