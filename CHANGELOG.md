@@ -1,5 +1,31 @@
 # Changelog
 
+## [2.0.0](https://github.com/roquerodrigo/workflows/compare/v1.0.0...v2.0.0) (2026-10-31)
+
+
+### ⚠ BREAKING CHANGES
+
+* sync-uv-lock.yml is removed. Callers must declare uv.lock under extra-files in release-please-config.json instead.
+
+### Features
+
+* **policy:** match Home Assistant repositories by pattern ([98e0a73](https://github.com/roquerodrigo/workflows/commit/98e0a732d3b6ce1a2339cba76af781d724afd7a8))
+
+
+### Bug Fixes
+
+* **deps:** bump pypa/gh-action-pypi-publish to v1.14.3 ([3b33006](https://github.com/roquerodrigo/workflows/commit/3b33006796b33bdf38144f1e975c43b9aff861ae))
+
+
+### Build System
+
+* remove the sync-uv-lock workflow ([2c076d4](https://github.com/roquerodrigo/workflows/commit/2c076d4d5da1351c13f3cd0c0986d2b457ba4c1a))
+
+
+### Miscellaneous Chores
+
+* **release:** keep only user-facing changes in the changelog ([0bf4e04](https://github.com/roquerodrigo/workflows/commit/0bf4e0405215a131ca74fa2fc9a9316cf1139582))
+
 ## 1.0.0 (2026-09-19)
 
 
