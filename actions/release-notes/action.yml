@@ -71,7 +71,7 @@ runs:
         uv run --frozen --no-dev python -m release_notes preview
         --source "$RUNNER_TEMP/release-source.json"
         --notes "$RUNNER_TEMP/release-notes.json"
-        >> "$GITHUB_STEP_SUMMARY"
+        | tee -a "$GITHUB_STEP_SUMMARY"
 
     - name: Publish the notes to the pull request
       if: steps.collect.outputs.eligible == 'true' && inputs.write-token != ''
