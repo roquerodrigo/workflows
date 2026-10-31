@@ -32,7 +32,9 @@ guessing its motivation.
 - `summary` is one sentence that gives the headline of a release with several notable changes. Leave it empty otherwise.
 
 How to write:
-- Each entry is one plain sentence in the language requested. Formal and neutral, with no emojis and no marketing.
+- Each entry is one short, plain sentence in the language requested, of about 25 words at most. Formal and neutral, \
+with no emojis and no marketing. Say what changed and why it matters, and leave the full detail to the documentation: \
+do not enumerate attributes, parameters or edge cases.
 - No Markdown, links, URLs, images, HTML, @mentions, commit hashes or pull request numbers in the text. List the \
 numbers of the pull requests behind an entry in its `pull_requests` field.
 - Native domain terms stay as they are, untranslated, whatever the language of the notes: `bandeira tarifária`, `CEP`.
