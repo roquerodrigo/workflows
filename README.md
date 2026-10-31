@@ -11,9 +11,10 @@ here and reaches every repository on its next run.
 ## Layout
 
 ```
-actions/                          composite actions — the shared setup steps
+actions/                          composite actions — the shared steps
 ├── setup-python/                 uv, interpreter, dependency groups, cache
-└── setup-node/                   Node, npm cache, npm ci
+├── setup-node/                   Node, npm cache, npm ci
+└── release-notes/                rewrite the notes of a release pull request
 
 .github/workflows/                reusable workflows — one concern each
 ├── python-lint.yml               Ruff, Mypy
@@ -30,7 +31,7 @@ actions/                          composite actions — the shared setup steps
 ├── publish-npm.yml               build and publish to npm
 ├── auto-assign.yml               assign the maintainer and the author
 ├── update-pr-branch.yml          rebase the pull request onto its base
-└── self-*.yml                    this repository's own callers: CI, release, auto-assign
+└── self-*.yml                    this repository's own callers: CI, release, auto-assign, notes preview
 ```
 
 Workflows are named after the ecosystem they serve, not the consumer that calls
@@ -187,6 +188,37 @@ jobs:
     secrets:
       pypi-token: ${{ secrets.PYPI_API_TOKEN }}
 ```
+
+### Release notes
+
+`release-please.yml` can rewrite the notes of the release pull request for the
+people who use the project, instead of listing commits. Pass one more secret:
+
+```yaml
+    secrets:
+      release-token: ${{ secrets.RELEASE_PLEASE_PAT }}
+      anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+release-please still decides the version, the tag and the files. The second job
+takes the commits the project shows in its changelog (`changelog-sections`), asks
+the Claude API for the text, then amends `CHANGELOG.md` in the release commit and
+replaces the notes in the pull request body. release-please publishes the release
+from that body, so reviewing the pull request is reviewing the text.
+
+- The notes are in pt-BR when `hacs.json` declares `"country": ["BR"]`, and in
+  English otherwise. Section titles are fixed for each language.
+- A failure leaves the text release-please wrote and does not hold back the
+  release or its publishing job.
+- The model runs with no tools and no GitHub token, and its text is rejected if it
+  carries a link, an image or a mention, or omits a breaking commit.
+- A first release has no previous tag to compare with, and a repository with
+  several packages is not supported. Both keep the text release-please wrote.
+- release-please restores its own text whenever it runs, so the job runs again on
+  each push to the default branch while a release pull request is open.
+
+`self-release-notes-preview.yml` prints the notes of two past releases on any pull
+request that touches the action, to judge a prompt change by its output.
 
 ### uv.lock
 

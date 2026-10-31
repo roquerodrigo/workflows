@@ -1,0 +1,61 @@
+name: Release notes preview
+
+# Writes the notes of past releases with the code under review and prints them to
+# the job summary, so a change to the prompt is judged by the text it produces.
+# Nothing is written to those repositories, and each run spends API credit, hence
+# the path filter. A pull request without access to the secret skips the call.
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - actions/release-notes/**
+      - .github/workflows/self-release-notes-preview.yml
+  workflow_dispatch:
+
+concurrency:
+  group: release-notes-preview-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  preview:
+    name: ${{ matrix.repository }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - repository: roquerodrigo/ha-tplink-deco
+            pull-request: 112
+          - repository: roquerodrigo/ha-enel-sp
+            pull-request: 2
+    steps:
+      - name: Check for the API key
+        id: credentials
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the repository
+        if: steps.credentials.outputs.available == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Write the notes
+        if: steps.credentials.outputs.available == 'true'
+        # Same workspace-relative form as self-auto-assign.yml, for the same reason.
+        uses: ./actions/release-notes # zizmor: ignore[self-repository]
+        with:
+          repository: ${{ matrix.repository }}
+          pull-request: ${{ matrix.pull-request }}
+          read-token: ${{ github.token }}
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -3,6 +3,10 @@ name: Release Please
 # Grooms the release pull request from the conventional commits on the default
 # branch, and tags the version once that pull request is merged. Publishing is a
 # separate concern: compose this with publish-pypi.yml or publish-npm.yml.
+#
+# With an API key, a second job rewrites the notes of the release pull request for
+# the people who use the project. Version, tag and files stay with release-please,
+# and a failure there leaves its text in place without holding the release back.
 
 on:
   workflow_call:
@@ -23,6 +27,11 @@ on:
           Token with contents and pull-requests write access. Falls back to the
           default GITHUB_TOKEN, whose pushes do not trigger workflows — a
           release pull request opened with it keeps stale checks.
+        required: false
+      anthropic-api-key:
+        description: >-
+          Key for the Claude API. Without it, or without release-token, the
+          release pull request keeps the notes release-please wrote.
         required: false
     outputs:
       release-created:
@@ -57,3 +66,43 @@ jobs:
           token: ${{ secrets.release-token || github.token }}
           config-file: ${{ inputs.config-file }}
           manifest-file: ${{ inputs.manifest-file }}
+
+  release-notes:
+    name: Release notes
+    needs: release-please
+    if: needs.release-please.outputs.release-pr != ''
+    continue-on-error: true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      pull-requests: read
+    steps:
+      - name: Check for the credentials
+        id: credentials
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
+          RELEASE_TOKEN: ${{ secrets.release-token }}
+        run: |
+          if [ -n "$ANTHROPIC_API_KEY" ] && [ -n "$RELEASE_TOKEN" ]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check out the release branch
+        if: steps.credentials.outputs.available == 'true'
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
+          fetch-depth: 2
+          persist-credentials: false
+
+      - name: Rewrite the notes
+        if: steps.credentials.outputs.available == 'true'
+        uses: roquerodrigo/workflows/actions/release-notes@main
+        with:
+          repository: ${{ github.repository }}
+          pull-request: ${{ fromJSON(needs.release-please.outputs.release-pr).number }}
+          configuration: ${{ inputs.config-file }}
+          read-token: ${{ github.token }}
+          anthropic-api-key: ${{ secrets.anthropic-api-key }}
+          write-token: ${{ secrets.release-token }}

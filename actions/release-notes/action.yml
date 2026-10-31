@@ -1,0 +1,86 @@
+name: Release notes
+description: Rewrites the notes of a release pull request for the people who use the project.
+
+# Each step receives only the credential it needs: the step that calls the model
+# never sees a GitHub token, and the step that writes never sees the API key.
+
+inputs:
+  repository:
+    description: Repository of the release pull request, as owner/name.
+    required: true
+  pull-request:
+    description: Number of the release pull request.
+    required: true
+  configuration:
+    description: Path to the release-please configuration.
+    required: false
+    default: release-please-config.json
+  read-token:
+    description: Token that reads the commits and pull requests of the repository.
+    required: true
+  anthropic-api-key:
+    description: Key for the Claude API.
+    required: true
+  write-token:
+    description: >-
+      Token that pushes to the release branch and edits the pull request. Leave it
+      empty to only print the notes to the job summary.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Install uv
+      uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+
+    - name: Collect the commits of the release
+      id: collect
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        GH_TOKEN: ${{ inputs.read-token }}
+        REPOSITORY: ${{ inputs.repository }}
+        PULL_REQUEST: ${{ inputs.pull-request }}
+        CONFIGURATION: ${{ inputs.configuration }}
+      run: >-
+        uv run --frozen --no-dev python -m release_notes collect
+        --repository "$REPOSITORY"
+        --pull-request "$PULL_REQUEST"
+        --configuration "$CONFIGURATION"
+        --source "$RUNNER_TEMP/release-source.json"
+
+    - name: Write the notes
+      if: steps.collect.outputs.eligible == 'true'
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        ANTHROPIC_API_KEY: ${{ inputs.anthropic-api-key }}
+      run: >-
+        uv run --frozen --no-dev python -m release_notes compose
+        --source "$RUNNER_TEMP/release-source.json"
+        --notes "$RUNNER_TEMP/release-notes.json"
+
+    - name: Print the notes to the job summary
+      if: steps.collect.outputs.eligible == 'true' && inputs.write-token == ''
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        GH_TOKEN: ${{ inputs.read-token }}
+      run: >-
+        uv run --frozen --no-dev python -m release_notes preview
+        --source "$RUNNER_TEMP/release-source.json"
+        --notes "$RUNNER_TEMP/release-notes.json"
+        >> "$GITHUB_STEP_SUMMARY"
+
+    - name: Publish the notes to the pull request
+      if: steps.collect.outputs.eligible == 'true' && inputs.write-token != ''
+      shell: bash
+      working-directory: ${{ github.action_path }}
+      env:
+        GH_TOKEN: ${{ inputs.write-token }}
+      run: >-
+        uv run --frozen --no-dev python -m release_notes apply
+        --source "$RUNNER_TEMP/release-source.json"
+        --notes "$RUNNER_TEMP/release-notes.json"
+        --work-tree "$GITHUB_WORKSPACE"

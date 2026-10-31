@@ -19,3 +19,4 @@ jobs:
     uses: ./.github/workflows/release-please.yml # zizmor: ignore[self-repository]
     secrets:
       release-token: ${{ secrets.RELEASE_PLEASE_PAT }}
+      anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
