@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.1.0](https://github.com/roquerodrigo/workflows/compare/v2.0.0...v2.1.0) (2026-10-31)
+
+### New features
+
+- The release-please workflow accepts an optional anthropic-api-key secret that rewrites the release pull request notes and matching CHANGELOG.md section for users. ([#45](https://github.com/roquerodrigo/workflows/pull/45))
+- Rewritten notes are written in pt-BR when hacs.json declares Brazil as the country, and in English otherwise. ([#45](https://github.com/roquerodrigo/workflows/pull/45))
+- If rewriting fails, the release keeps the original release-please notes and the release and publishing proceed normally. ([#45](https://github.com/roquerodrigo/workflows/pull/45))
+
 ## [2.0.0](https://github.com/roquerodrigo/workflows/compare/v1.0.0...v2.0.0) (2026-10-31)
 
 
