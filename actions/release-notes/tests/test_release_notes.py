@@ -1,7 +1,7 @@
 import unittest
 
 from release_notes.errors import RejectedNotesError
-from release_notes.release_notes import ReleaseNotes
+from release_notes.release_notes import ReleaseNotes, support_section
 
 HEADING = "## [1.1.0](https://github.com/owner/repo/compare/v1.0.0...v1.1.0) (2026-01-02)"
 
@@ -60,3 +60,12 @@ class RenderTest(unittest.TestCase):
     def test_a_release_without_user_facing_changes_says_so(self):
         rendered = validated().render(HEADING, "pt-BR", "owner/repo")
         self.assertEqual(rendered, f"{HEADING}\n\nApenas manutenção interna, sem mudanças para quem usa o projeto.\n")
+
+
+class SupportSectionTest(unittest.TestCase):
+    def test_links_to_the_sponsors_page_of_the_owner(self):
+        self.assertIn("(https://github.com/sponsors/owner)", support_section("en", "owner/repo"))
+
+    def test_follows_the_language(self):
+        self.assertTrue(support_section("en", "owner/repo").startswith("### Support\n"))
+        self.assertTrue(support_section("pt-BR", "owner/repo").startswith("### Apoio\n"))

@@ -210,6 +210,9 @@ also leaves out the banner release-please puts above and below the notes; the tw
 
 - The notes are in pt-BR when `hacs.json` declares `"country": ["BR"]`, and in
   English otherwise. Section titles are fixed for each language.
+- The release ends with a section that invites sponsorship, in the same language.
+  It is fixed text, and it stays out of `CHANGELOG.md`, where it would repeat for
+  every version.
 - A failure leaves the text release-please wrote and does not hold back the
   release or its publishing job.
 - The model runs with no tools and no GitHub token, and its text is rejected if it
