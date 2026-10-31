@@ -204,7 +204,9 @@ release-please still decides the version, the tag and the files. The second job
 takes the commits the project shows in its changelog (`changelog-sections`), asks
 the Claude API for the text, then amends `CHANGELOG.md` in the release commit and
 replaces the notes in the pull request body. release-please publishes the release
-from that body, so reviewing the pull request is reviewing the text.
+from that body, so reviewing the pull request is reviewing the text. The rewrite
+also leaves out the banner release-please puts above and below the notes; the two
+`---` lines stay because it needs them to recognise the pull request.
 
 - The notes are in pt-BR when `hacs.json` declares `"country": ["BR"]`, and in
   English otherwise. Section titles are fixed for each language.

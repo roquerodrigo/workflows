@@ -12,11 +12,13 @@ PREVIOUS_TAG = re.compile(r"/compare/(?P<tag>.+?)\.\.\.")
 
 @dataclass(frozen=True)
 class ReleasePullRequestBody:
-    """The layout release-please parses back when it publishes the release."""
+    """The layout release-please parses back when it publishes the release.
 
-    before_notes: str
+    The delimiters are mandatory: without them it stops recognising the pull request
+    as a release. The banner it writes around them is not, so the rewrite leaves it out.
+    """
+
     heading: str
-    after_notes: str
 
     @classmethod
     def parse(cls, body: str) -> ReleasePullRequestBody:
@@ -33,11 +35,7 @@ class ReleasePullRequestBody:
         heading = notes.split("\n", 1)[0]
         if HEADING.match(heading) is None:
             raise NotEligibleError("the notes do not start with a version heading")
-        return cls(
-            before_notes="\n".join(lines[: first + 1]),
-            heading=heading,
-            after_notes="\n".join(lines[last:]),
-        )
+        return cls(heading=heading)
 
     @property
     def previous_tag(self) -> str:
@@ -47,4 +45,4 @@ class ReleasePullRequestBody:
         return match["tag"]
 
     def with_notes(self, notes: str) -> str:
-        return f"{self.before_notes}\n\n\n{notes.strip()}\n\n{self.after_notes}"
+        return f"{NOTES_DELIMITER}\n\n{notes.strip()}\n\n{NOTES_DELIMITER}"
