@@ -29,7 +29,7 @@ actions/                          composite actions — the shared steps
 ├── publish-hacs-zip.yml          attach the HACS install zip to the release
 ├── publish-hacs-plugin.yml       attach the HACS card bundle to the release
 ├── publish-npm.yml               build and publish to npm
-├── auto-assign.yml               assign the maintainer and the author, request the review
+├── auto-assign.yml               assign the maintainer and the author, optionally request a review
 ├── update-pr-branch.yml          rebase the pull request onto its base
 └── self-*.yml                    this repository's own callers: CI, release, auto-assign, notes preview
 ```

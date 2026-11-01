@@ -9,9 +9,10 @@ name: Auto-assign
 # assignee without access to the repository, so an outside author simply falls
 # away; bot authors are skipped outright because they can never be assigned.
 #
-# The reviewer is requested on every open pull request someone else opened:
-# GitHub refuses a review request to the author. A pull request the reviewer has
-# already reviewed is left alone, or each sweep would ask for the review again.
+# A caller that sets a reviewer gets it requested on every open pull request
+# someone else opened: GitHub refuses a review request to the author. A pull
+# request the reviewer has already reviewed is left alone, or each sweep would
+# ask for the review again.
 
 on:
   workflow_call:
@@ -22,10 +23,10 @@ on:
         type: string
         default: roquerodrigo
       reviewer:
-        description: Login requested as reviewer on open pull requests. Empty requests nobody.
+        description: Login requested as reviewer on open pull requests. Requests nobody by default.
         required: false
         type: string
-        default: roquerodrigo
+        default: ""
 
 permissions: {}
 
