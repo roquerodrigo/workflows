@@ -8,12 +8,21 @@ name: Auto-assign
 # Both the maintainer and the author are assigned. GitHub silently drops an
 # assignee without access to the repository, so an outside author simply falls
 # away; bot authors are skipped outright because they can never be assigned.
+#
+# The reviewer is requested on every open pull request someone else opened:
+# GitHub refuses a review request to the author. A pull request the reviewer has
+# already reviewed is left alone, or each sweep would ask for the review again.
 
 on:
   workflow_call:
     inputs:
       assignee:
         description: Login assigned to every unassigned issue and pull request.
+        required: false
+        type: string
+        default: roquerodrigo
+      reviewer:
+        description: Login requested as reviewer on open pull requests. Empty requests nobody.
         required: false
         type: string
         default: roquerodrigo
@@ -51,4 +60,25 @@ jobs:
               gh api --method POST "repos/${REPOSITORY}/issues/${number}/assignees" \
                 "${fields[@]}" --silent
               echo "Assigned #${number} to ${logins[*]}"
+            done
+
+      - name: Request the review
+        if: inputs.reviewer != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REVIEWER: ${{ inputs.reviewer }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          gh api "repos/${REPOSITORY}/pulls?state=open&per_page=100" --paginate \
+            --jq '.[] | select(.user.login != env.REVIEWER) | select(all(.requested_reviewers[]; .login != env.REVIEWER)) | .number' |
+            while read -r number; do
+              reviews=$(gh api "repos/${REPOSITORY}/pulls/${number}/reviews?per_page=100" --paginate \
+                --jq '.[] | select(.user.login == env.REVIEWER) | .id')
+              if [ -n "${reviews}" ]; then
+                continue
+              fi
+              gh api --method POST "repos/${REPOSITORY}/pulls/${number}/requested_reviewers" \
+                -f "reviewers[]=${REVIEWER}" --silent
+              echo "Requested a review of #${number} from ${REVIEWER}"
             done
