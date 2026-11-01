@@ -18,11 +18,27 @@ runs:
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: ${{ inputs.node-version }}
-        cache: npm
+        package-manager-cache: false
+
+    # release-please bumps the project's own version in the lockfile on every
+    # release, so hashing the file as it is misses the cache on each of them.
+    - name: Hash the locked dependencies
+      id: lockfile
+      shell: bash
+      run: |
+        hash=$(jq --sort-keys 'del(.version, .packages[""].version)' package-lock.json | sha256sum | cut -d' ' -f1)
+        echo "hash=${hash}" >> "$GITHUB_OUTPUT"
+
+    - name: Restore the npm cache
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.npm
+        key: npm-${{ runner.os }}-${{ steps.lockfile.outputs.hash }}
+        restore-keys: npm-${{ runner.os }}-
 
     # `npm ci` is load-bearing beyond installing: it fails outright when the
     # lockfile and the manifest disagree, which `npm install` papers over.
     - name: Install dependencies
       if: inputs.install == 'true'
       shell: bash
-      run: npm ci
+      run: npm ci --prefer-offline --no-audit --no-fund
