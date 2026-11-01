@@ -1,5 +1,17 @@
 # Changelog
 
+## [2.3.0](https://github.com/roquerodrigo/workflows/compare/v2.2.0...v2.3.0) (2026-11-01)
+
+The auto-assign workflow can now request a review on open pull requests, and the Node.js setup keeps its npm cache across releases.
+
+### New features
+
+- The auto-assign workflow accepts an optional reviewer input that requests a review on open pull requests, skipping the author and pull requests already reviewed. ([#51](https://github.com/roquerodrigo/workflows/pull/51))
+
+### Improvements
+
+- The setup-node action now reuses the npm cache across releases and after dependency changes; the first run in each repository starts with an empty cache once. ([#51](https://github.com/roquerodrigo/workflows/pull/51))
+
 ## [2.2.0](https://github.com/roquerodrigo/workflows/compare/v2.1.0...v2.2.0) (2026-10-31)
 
 ### New features
