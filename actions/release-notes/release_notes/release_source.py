@@ -1,15 +1,17 @@
 from __future__ import annotations
 
+import hashlib
 import json
+import re
 from dataclasses import asdict, dataclass
 
 from release_notes.conventional_commit import ConventionalCommit, visible_types
-from release_notes.errors import NotEligibleError
+from release_notes.errors import NotEligibleError, NotesUnchangedError
 from release_notes.github_client import GitHubClient
 from release_notes.notes_configuration import NOTES_CONFIGURATION_PATH, NotesConfiguration
-from release_notes.pull_request_body import ReleasePullRequestBody
 
 RELEASE_BRANCH_PREFIX = "release-please--"
+DIGEST_MARKER = re.compile(r"<!-- release-notes: (?P<digest>[0-9a-f]{64}) -->")
 MAXIMUM_PATCH_CHARACTERS_PER_FILE = 4_000
 MAXIMUM_PATCH_CHARACTERS_PER_COMMIT = 20_000
 MAXIMUM_DESCRIPTION_CHARACTERS = 6_000
@@ -37,11 +39,7 @@ class ReleaseCommit:
 @dataclass(frozen=True)
 class ReleaseSource:
     repository: str
-    pull_request_number: int
-    head_sha: str
-    head_branch: str
-    language: str
-    changelog_path: str
+    digest: str
     notes_configuration: NotesConfiguration
     commits: list[ReleaseCommit]
 
@@ -63,8 +61,28 @@ class ReleaseSource:
             ReleaseCommit(**{**commit, "files": [ChangedFile(**file) for file in commit["files"]]})
             for commit in data.pop("commits")
         ]
-        notes_configuration = NotesConfiguration(**data.pop("notes_configuration"))
+        notes_configuration = NotesConfiguration.from_dict(data.pop("notes_configuration"))
         return cls(**data, notes_configuration=notes_configuration, commits=commits)
+
+
+@dataclass(frozen=True)
+class SourceFiles:
+    configuration: str
+    root: dict
+    package: dict
+    package_path: str
+    notes: str | None
+    hacs_manifest: str | None
+
+
+def notes_digest(source_files: SourceFiles, commit_shas: list[str]) -> str:
+    material = "\n".join([source_files.configuration, source_files.notes or "", *commit_shas])
+    return hashlib.sha256(material.encode()).hexdigest()
+
+
+def digest_in(pull_request_body: str | None) -> str | None:
+    match = DIGEST_MARKER.search(pull_request_body or "")
+    return match["digest"] if match else None
 
 
 def language_of(hacs_manifest: str | None) -> str:
@@ -77,50 +95,82 @@ def is_bot(login: str | None) -> bool:
 
 
 class ReleaseSourceCollector:
-    def __init__(self, github: GitHubClient, repository: str, configuration_path: str) -> None:
+    def __init__(self, github: GitHubClient, repository: str, configuration_path: str, manifest_path: str) -> None:
         self._github = github
         self._repository = repository
         self._configuration_path = configuration_path
+        self._manifest_path = manifest_path
 
-    def collect(self, pull_request_number: int) -> ReleaseSource:
-        pull_request = self._github.get(f"repos/{self._repository}/pulls/{pull_request_number}")
-        head_branch = pull_request["head"]["ref"]
-        if not head_branch.startswith(RELEASE_BRANCH_PREFIX):
-            raise NotEligibleError(f"{head_branch} is not a release branch")
-        body = ReleasePullRequestBody.parse(pull_request["body"] or "")
-        head_sha = pull_request["head"]["sha"]
-        released_sha = self._github.get(f"repos/{self._repository}/commits/{head_sha}")["parents"][0]["sha"]
-        root, package = self._configuration(released_sha)
-        shown_types = visible_types(package, root)
-        notes_configuration = NotesConfiguration.of(
-            self._github.file_text(self._repository, NOTES_CONFIGURATION_PATH, released_sha),
-            language_of(self._github.file_text(self._repository, "hacs.json", released_sha)),
-        )
-        commits = [
-            self._release_commit(commit["sha"], notes_configuration)
-            for commit in self._github.compared_commits(self._repository, body.previous_tag, released_sha)
-            if self._is_shown(commit["commit"]["message"], shown_types)
-        ]
-        return ReleaseSource(
-            repository=self._repository,
-            pull_request_number=pull_request_number,
-            head_sha=head_sha,
-            head_branch=head_branch,
-            language=notes_configuration.language,
-            changelog_path=package.get("changelog-path") or root.get("changelog-path") or "CHANGELOG.md",
-            notes_configuration=notes_configuration,
-            commits=commits,
-        )
+    def collect(self) -> ReleaseSource:
+        details = self._github.get(f"repos/{self._repository}")
+        head_sha = self._github.get(f"repos/{self._repository}/commits/{details['default_branch']}")["sha"]
+        source_files = self._source_files(head_sha)
+        previous_tag = self._previous_tag(source_files, head_sha)
+        shown = self._shown_commits(source_files, previous_tag, head_sha)
+        digest = notes_digest(source_files, [commit["sha"] for commit in shown])
+        open_pull_request = self._open_release_pull_request()
+        if open_pull_request is not None and digest_in(open_pull_request.get("body")) == digest:
+            raise NotesUnchangedError(open_pull_request)
+        return self._source(source_files, shown, digest)
 
-    def _configuration(self, ref: str) -> tuple[dict, dict]:
-        text = self._github.file_text(self._repository, self._configuration_path, ref)
-        if text is None:
+    def collect_past_release(self, previous_tag: str, release_tag: str) -> ReleaseSource:
+        release_commit = self._github.get(f"repos/{self._repository}/commits/{release_tag}")
+        released_sha = release_commit["parents"][0]["sha"]
+        source_files = self._source_files(released_sha)
+        shown = self._shown_commits(source_files, previous_tag, released_sha)
+        return self._source(source_files, shown, notes_digest(source_files, [commit["sha"] for commit in shown]))
+
+    def _source_files(self, ref: str) -> SourceFiles:
+        configuration = self._github.file_text(self._repository, self._configuration_path, ref)
+        if configuration is None:
             raise NotEligibleError(f"{self._configuration_path} does not exist")
-        root = json.loads(text)
+        root = json.loads(configuration)
         packages = root.get("packages", {})
         if len(packages) != 1:
             raise NotEligibleError("only single-package repositories are supported")
-        return root, next(iter(packages.values()))
+        return SourceFiles(
+            configuration=configuration,
+            root=root,
+            package=next(iter(packages.values())),
+            package_path=next(iter(packages)),
+            notes=self._github.file_text(self._repository, NOTES_CONFIGURATION_PATH, ref),
+            hacs_manifest=self._github.file_text(self._repository, "hacs.json", ref),
+        )
+
+    def _previous_tag(self, source_files: SourceFiles, ref: str) -> str:
+        if source_files.root.get("include-component-in-tag", True):
+            raise NotEligibleError("tags that carry a component are not supported")
+        manifest = self._github.file_text(self._repository, self._manifest_path, ref)
+        version = json.loads(manifest or "{}").get(source_files.package_path)
+        prefix = "v" if source_files.root.get("include-v-in-tag", True) else ""
+        tag = f"{prefix}{version}"
+        if version is None or self._github.get_or_none(f"repos/{self._repository}/git/ref/tags/{tag}") is None:
+            raise NotEligibleError("the first release has no previous tag to compare with")
+        return tag
+
+    def _shown_commits(self, source_files: SourceFiles, previous_tag: str, head_sha: str) -> list[dict]:
+        shown_types = visible_types(source_files.package, source_files.root)
+        return [
+            commit
+            for commit in self._github.compared_commits(self._repository, previous_tag, head_sha)
+            if self._is_shown(commit["commit"]["message"], shown_types)
+        ]
+
+    def _open_release_pull_request(self) -> dict | None:
+        pull_requests = self._github.get(f"repos/{self._repository}/pulls?state=open&per_page=100")
+        return next(
+            (item for item in pull_requests if item["head"]["ref"].startswith(RELEASE_BRANCH_PREFIX)),
+            None,
+        )
+
+    def _source(self, source_files: SourceFiles, shown: list[dict], digest: str) -> ReleaseSource:
+        notes_configuration = NotesConfiguration.of(source_files.notes, language_of(source_files.hacs_manifest))
+        return ReleaseSource(
+            repository=self._repository,
+            digest=digest,
+            notes_configuration=notes_configuration,
+            commits=[self._release_commit(commit["sha"], notes_configuration) for commit in shown],
+        )
 
     @staticmethod
     def _is_shown(message: str, shown_types: frozenset[str]) -> bool:

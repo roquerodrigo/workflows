@@ -17,17 +17,22 @@ existing one.
 
 ## Verifying a change
 
-CI (`self-ci.yml`) is the only test surface. The one package manager here is the
-`uv` project in `actions/release-notes`. Reproduce CI locally before opening a PR:
+CI (`self-ci.yml`) is the only test surface. The package managers here are the
+`uv` project in `actions/release-notes` and the npm project in
+`actions/release-please`. Reproduce CI locally before opening a PR:
 
 - `actionlint`
 - `uvx --from 'zizmor>=1,<2' zizmor --persona regular --min-severity low .`
   (needs `GH_TOKEN` set; audit policy lives in `zizmor.yml`)
 - In `actions/release-notes`: `uvx ruff check .`, `uvx ruff format --check .`,
   `uv run --frozen --no-dev python -m unittest discover -s tests -t .`
+- In `actions/release-please`: `npm ci --ignore-scripts`, `npm test`
 
 ## Conventions not obvious from a single file
 
+- `actions/release-please` pins `release-please` to an exact version because it
+  imports from `build/src/`, which is not a public interface. Run its tests on
+  every bump.
 - Third-party action `uses:` are pinned by commit digest with a trailing version
   comment; `roquerodrigo/*` are pinned by branch on purpose (see `zizmor.yml` —
   freezing them would defeat the shared-`@main` model). Dependabot bumps the

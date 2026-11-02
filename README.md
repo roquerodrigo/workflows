@@ -14,7 +14,8 @@ here and reaches every repository on its next run.
 actions/                          composite actions — the shared steps
 ├── setup-python/                 uv, interpreter, dependency groups, cache
 ├── setup-node/                   Node, npm cache, npm ci
-└── release-notes/                rewrite the notes of a release pull request
+├── release-notes/                write the notes of the next release
+└── release-please/               run release-please with those notes in place
 
 .github/workflows/                reusable workflows — one concern each
 ├── python-lint.yml               Ruff, Mypy
@@ -191,8 +192,8 @@ jobs:
 
 ### Release notes
 
-`release-please.yml` can rewrite the notes of the release pull request for the
-people who use the project, instead of listing commits. Pass one more secret:
+`release-please.yml` can write the notes of the release for the people who use the
+project, instead of listing commits. Pass one more secret:
 
 ```yaml
     secrets:
@@ -200,35 +201,39 @@ people who use the project, instead of listing commits. Pass one more secret:
       anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 ```
 
-release-please still decides the version, the tag and the files. The second job
-takes the commits the project shows in its changelog (`changelog-sections`), asks
-the Claude API for the text, then amends `CHANGELOG.md` in the release commit and
-replaces the notes in the pull request body. release-please publishes the release
-from that body, so reviewing the pull request is reviewing the text. The rewrite
-also leaves out the banner release-please puts above and below the notes; the two
-`---` lines stay because it needs them to recognise the pull request.
+release-please still decides the version, the tag and the files. Before it touches
+the release pull request, a job takes the commits the project shows in its changelog
+(`changelog-sections`) and asks the Claude API for the text. release-please then runs
+with that text as its notes, so the pull request, `CHANGELOG.md` and the release all
+carry it from the first write. It publishes the release from the pull request body,
+so reviewing the pull request is reviewing the text.
 
 - The notes are in pt-BR when `hacs.json` declares `"country": ["BR"]`, and in
   English otherwise, unless the project declares a language (below). Section titles
   are fixed for each language, unless the project names its own.
-- The release ends with a section that invites sponsorship, in the same language.
-  It is fixed text, and it stays out of `CHANGELOG.md`, where it would repeat for
-  every version.
-- A failure leaves the text release-please wrote and does not hold back the
-  release or its publishing job.
+- The release ends with a section that invites sponsorship, in the language of the
+  release. It is fixed text, and it stays out of the changelogs, where it would
+  repeat for every version.
+- A hidden comment in the pull request records what the notes were written from: the
+  commits shown and the configuration. While those stay the same, a push neither
+  calls the model nor touches the pull request. A new commit in `changelog-sections`
+  writes the notes again, since the entries may merge.
+- A failure to write the notes leaves the release pull request as it is and fails the
+  run, and the next push tries again. The default text is never used as a fallback.
+  A release already merged is still tagged and published.
 - The model runs with no tools and no GitHub token, and its text is rejected if it
   carries a link, an image or a mention, or omits a breaking commit.
-- A first release has no previous tag to compare with, and a repository with
-  several packages is not supported. Both keep the text release-please wrote.
-- release-please restores its own text whenever it runs, so the job runs again on
-  each push to the default branch while a release pull request is open.
+- A first release has no previous tag to compare with, tags that carry a component
+  are not supported, and neither is a repository with several packages. These keep
+  the text release-please writes.
 
 A project shapes its notes with an optional `.github/release-notes.toml`, read from
 the commit being released. Without the file nothing changes, and every field can be
 left out:
 
 ```toml
-# The language of the notes, "en" or "pt-BR". Without it, hacs.json decides.
+# The language of the notes, "en" or "pt-BR". Without it, hacs.json decides. Replaced
+# by [[changelogs]] in a project with more than one language, below.
 language = "pt-BR"
 
 # Replaces the guidance on what to write and how. The rules on markup, breaking
@@ -249,8 +254,38 @@ fixes = "Bug fixes"
 ```
 
 A `breaking` section is always there, first, with the title of the language unless
-the file names it. A file that cannot be used fails the job, which keeps the text
-release-please wrote.
+the file names it. A file that cannot be used counts as a failure to write the notes.
+
+To keep the notes in another file, or in several languages, list the changelogs. The
+first one is the language of the pull request and the release, and `[sections]` moves
+inside each entry:
+
+```toml
+[[changelogs]]
+language = "pt-BR"
+# Optional here, and only here. Without it, `changelog-path` of release-please decides.
+path = "CHANGELOG.md"
+
+[[changelogs]]
+language = "en"
+path = "docs/CHANGELOG.en.md"
+
+# A language other than "en" and "pt-BR" declares the texts it has no default for.
+[[changelogs]]
+language = "es"
+path = "docs/CHANGELOG.es.md"
+no_user_facing_changes = "Solo mantenimiento interno, sin cambios para quienes usan el proyecto."
+support = "### Apoyo\n\nConsidera [apoyar el trabajo]({url}).\n"
+
+[changelogs.sections]
+breaking = "Cambios incompatibles"
+added = "Novedades"
+changed = "Mejoras"
+fixed = "Correcciones"
+```
+
+All the languages come from one call to the model, entry by entry, so they cannot
+list different changes. Every changelog needs the same sections.
 
 `self-release-notes-preview.yml` prints the notes of two past releases on any pull
 request that touches the action, to judge a prompt change by its output.

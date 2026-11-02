@@ -1,32 +1,50 @@
 name: Release notes
-description: Rewrites the notes of a release pull request for the people who use the project.
+description: Writes the notes of the next release for the people who use the project.
 
 # Each step receives only the credential it needs: the step that calls the model
-# never sees a GitHub token, and the step that writes never sees the API key.
+# never sees a GitHub token. The notes are left in a file for whoever opens the
+# release pull request, which is the only place that holds a token that can write.
 
 inputs:
   repository:
-    description: Repository of the release pull request, as owner/name.
-    required: true
-  pull-request:
-    description: Number of the release pull request.
+    description: Repository of the release, as owner/name.
     required: true
   configuration:
     description: Path to the release-please configuration.
     required: false
     default: release-please-config.json
+  manifest:
+    description: Path to the release-please manifest.
+    required: false
+    default: .release-please-manifest.json
+  previous-tag:
+    description: With release-tag, writes the notes of that past release and prints them to the job summary.
+    required: false
+    default: ""
+  release-tag:
+    description: Tag of a past release to write the notes of, instead of the next release.
+    required: false
+    default: ""
   read-token:
     description: Token that reads the commits and pull requests of the repository.
     required: true
   anthropic-api-key:
     description: Key for the Claude API.
     required: true
-  write-token:
+
+outputs:
+  state:
     description: >-
-      Token that pushes to the release branch and edits the pull request. Leave it
-      empty to only print the notes to the job summary.
-    required: false
-    default: ""
+      "ready" when the notes file was written, "unchanged" when the open release
+      pull request already carries these notes, "absent" when this release keeps
+      the text release-please writes.
+    value: ${{ steps.collect.outputs.state }}
+  pull-request:
+    description: JSON describing the open release pull request, when the state is "unchanged".
+    value: ${{ steps.collect.outputs.pull-request }}
+  notes-file:
+    description: Path to the notes, when the state is "ready".
+    value: ${{ steps.compose.outputs.notes-file }}
 
 runs:
   using: composite
@@ -41,17 +59,22 @@ runs:
       env:
         GH_TOKEN: ${{ inputs.read-token }}
         REPOSITORY: ${{ inputs.repository }}
-        PULL_REQUEST: ${{ inputs.pull-request }}
         CONFIGURATION: ${{ inputs.configuration }}
+        MANIFEST: ${{ inputs.manifest }}
+        PREVIOUS_TAG: ${{ inputs.previous-tag }}
+        RELEASE_TAG: ${{ inputs.release-tag }}
       run: >-
         uv run --frozen --no-dev python -m release_notes collect
         --repository "$REPOSITORY"
-        --pull-request "$PULL_REQUEST"
         --configuration "$CONFIGURATION"
+        --manifest "$MANIFEST"
+        --previous-tag "$PREVIOUS_TAG"
+        --release-tag "$RELEASE_TAG"
         --source "$RUNNER_TEMP/release-source.json"
 
     - name: Write the notes
-      if: steps.collect.outputs.eligible == 'true'
+      id: compose
+      if: steps.collect.outputs.state == 'ready'
       shell: bash
       working-directory: ${{ github.action_path }}
       env:
@@ -62,25 +85,11 @@ runs:
         --notes "$RUNNER_TEMP/release-notes.json"
 
     - name: Print the notes to the job summary
-      if: steps.collect.outputs.eligible == 'true' && inputs.write-token == ''
+      if: steps.collect.outputs.state == 'ready' && inputs.release-tag != ''
       shell: bash
       working-directory: ${{ github.action_path }}
-      env:
-        GH_TOKEN: ${{ inputs.read-token }}
       run: >-
         uv run --frozen --no-dev python -m release_notes preview
         --source "$RUNNER_TEMP/release-source.json"
         --notes "$RUNNER_TEMP/release-notes.json"
         | tee -a "$GITHUB_STEP_SUMMARY"
-
-    - name: Publish the notes to the pull request
-      if: steps.collect.outputs.eligible == 'true' && inputs.write-token != ''
-      shell: bash
-      working-directory: ${{ github.action_path }}
-      env:
-        GH_TOKEN: ${{ inputs.write-token }}
-      run: >-
-        uv run --frozen --no-dev python -m release_notes apply
-        --source "$RUNNER_TEMP/release-source.json"
-        --notes "$RUNNER_TEMP/release-notes.json"
-        --work-tree "$GITHUB_WORKSPACE"

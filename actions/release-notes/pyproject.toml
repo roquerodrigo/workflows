@@ -1,7 +1,7 @@
 [project]
 name = "release-notes"
 version = "0.0.0"
-description = "Rewrites the notes of a release pull request for the people who use the project."
+description = "Writes the notes of the next release for the people who use the project."
 requires-python = ">=3.12"
 dependencies = ["anthropic>=2,<3"]
 

@@ -4,22 +4,9 @@ import re
 from dataclasses import dataclass
 
 from release_notes.errors import RejectedNotesError
-from release_notes.notes_configuration import BREAKING_SECTION
+from release_notes.notes_configuration import BREAKING_SECTION, Changelog
+from release_notes.release_source import ReleaseSource
 
-NO_USER_FACING_CHANGES = {
-    "en": "Internal maintenance only, with no changes for those who use the project.",
-    "pt-BR": "Apenas manutenção interna, sem mudanças para quem usa o projeto.",
-}
-SUPPORT_SECTIONS = {
-    "en": (
-        "### Support\n\nThis project is built and maintained on personal time. If it is useful to you, consider "
-        "[sponsoring the work]({url}) — it keeps the development, the testing and the releases coming.\n"
-    ),
-    "pt-BR": (
-        "### Apoio\n\nEste projeto é desenvolvido e mantido em tempo pessoal. Se ele for útil para você, considere "
-        "[apoiar o trabalho]({url}) — isso mantém o desenvolvimento, os testes e os releases em andamento.\n"
-    ),
-}
 FORBIDDEN_MARKUP = re.compile(r"https?://|!\[|\]\(|<\s*/?\s*(details|summary)|(?<![\w.])@[\w-]+", re.IGNORECASE)
 
 
@@ -56,27 +43,56 @@ class ReleaseNotes:
         if any(not entry.text or entry.category not in section_titles for entry in entries):
             raise RejectedNotesError("an entry is empty or has an unknown category")
         if any(FORBIDDEN_MARKUP.search(text) for text in (summary, *(entry.text for entry in entries))):
-            raise RejectedNotesError("the text carries a link, an image, a mention or a release-please tag")
+            raise RejectedNotesError("the text carries a link, an image or a mention")
         if has_breaking_commit and not any(entry.category == BREAKING_SECTION for entry in entries):
             raise RejectedNotesError("a breaking commit has no breaking entry")
         return cls(summary=summary, entries=entries)
 
-    def render(self, heading: str, language: str, repository: str, section_titles: dict[str, str]) -> str:
+    def render(self, changelog: Changelog, repository: str) -> str:
         if not self.entries:
-            return f"{heading}\n\n{NO_USER_FACING_CHANGES[language]}\n"
-        blocks = [heading]
+            return f"{changelog.no_user_facing_changes}\n"
+        blocks = []
         if self.summary:
             blocks.append(self.summary)
-        for category, title in section_titles.items():
+        for category, title in changelog.section_titles.items():
             lines = [_bullet(entry, repository) for entry in self.entries if entry.category == category]
             if lines:
                 blocks.append(f"### {title}\n\n" + "\n".join(lines))
         return "\n\n".join(blocks) + "\n"
 
 
-def support_section(language: str, repository: str) -> str:
-    owner = repository.split("/")[0]
-    return SUPPORT_SECTIONS[language].format(url=f"https://github.com/sponsors/{owner}")
+def published_notes(written: dict, source: ReleaseSource) -> dict:
+    """What the release needs from this step. The version and the heading stay with release-please."""
+    configuration = source.notes_configuration
+    return {
+        "digest": source.digest,
+        "support": configuration.primary.support_section(source.repository),
+        "changelogs": [
+            {
+                "language": changelog.language,
+                "path": changelog.path,
+                "notes": _rendered(written, source, changelog),
+            }
+            for changelog in configuration.changelogs
+        ],
+    }
+
+
+def _rendered(written: dict, source: ReleaseSource, changelog: Changelog) -> str:
+    notes = ReleaseNotes.validated(
+        _written_in(written, changelog.language),
+        source.known_pull_requests,
+        has_breaking_commit=source.has_breaking_commit,
+        section_titles=changelog.section_titles,
+    )
+    return notes.render(changelog, source.repository)
+
+
+def _written_in(written: dict, language: str) -> dict:
+    return {
+        "summary": written["summary"][language],
+        "entries": [{**entry, "text": entry["text"][language]} for entry in written["entries"]],
+    }
 
 
 def _single_line(text: str) -> str:
