@@ -29,7 +29,7 @@ guessing its motivation.
 - `summary` is one sentence that gives the headline of a release with several notable changes. Leave it empty otherwise.
 
 How to write:
-- Each entry is one short, plain sentence in the language requested, of about 25 words at most. Formal and neutral, \
+- Each entry is one short, plain sentence in each language requested, of about 25 words at most. Formal and neutral, \
 with no emojis and no marketing. Say what changed and why it matters, and leave the full detail to the documentation: \
 do not enumerate attributes, parameters or edge cases.
 - Native domain terms stay as they are, untranslated, whatever the language of the notes: `bandeira tarifária`, `CEP`.
@@ -58,17 +58,23 @@ def system_prompt(notes_configuration: NotesConfiguration) -> str:
 
 
 def output_schema(notes_configuration: NotesConfiguration) -> dict:
+    localized_text = {
+        "type": "object",
+        "properties": {language: {"type": "string"} for language in notes_configuration.languages},
+        "required": notes_configuration.languages,
+        "additionalProperties": False,
+    }
     return {
         "type": "object",
         "properties": {
-            "summary": {"type": "string"},
+            "summary": localized_text,
             "entries": {
                 "type": "array",
                 "items": {
                     "type": "object",
                     "properties": {
                         "category": {"type": "string", "enum": list(notes_configuration.section_titles)},
-                        "text": {"type": "string"},
+                        "text": localized_text,
                         "pull_requests": {"type": "array", "items": {"type": "integer"}},
                     },
                     "required": ["category", "text", "pull_requests"],
@@ -100,7 +106,15 @@ def write_notes(source: ReleaseSource) -> dict:
     return json.loads(text)
 
 
+def no_notes(source: ReleaseSource) -> dict:
+    return {"summary": dict.fromkeys(source.notes_configuration.languages, ""), "entries": []}
+
+
 def _user_message(source: ReleaseSource) -> str:
+    languages = ", ".join(
+        f"`{language}` ({LANGUAGE_NAMES.get(language, language)})" for language in source.notes_configuration.languages
+    )
     return (
-        f"Write the notes in {LANGUAGE_NAMES[source.language]}.\n\n<release_data>\n{source.to_json()}\n</release_data>"
+        f"Write `summary` and every `text` once for each of these languages, keyed by its tag, saying the same thing "
+        f"in each: {languages}.\n\n<release_data>\n{source.to_json()}\n</release_data>"
     )

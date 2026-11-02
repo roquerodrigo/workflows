@@ -1,12 +1,12 @@
 name: Release Please
 
-# Grooms the release pull request from the conventional commits on the default
-# branch, and tags the version once that pull request is merged. Publishing is a
-# separate concern: compose this with publish-pypi.yml or publish-npm.yml.
+# Tags the release pull request once it is merged, and grooms the next one from the
+# conventional commits on the default branch. Publishing is a separate concern:
+# compose this with publish-pypi.yml or publish-npm.yml.
 #
-# With an API key, a second job rewrites the notes of the release pull request for
-# the people who use the project. Version, tag and files stay with release-please,
-# and a failure there leaves its text in place without holding the release back.
+# With an API key, the notes of the next release are written before its pull request
+# is touched, so that pull request only ever shows the final text. Version, tag and
+# files stay with release-please.
 
 on:
   workflow_call:
@@ -30,79 +30,132 @@ on:
         required: false
       anthropic-api-key:
         description: >-
-          Key for the Claude API. Without it, or without release-token, the
-          release pull request keeps the notes release-please wrote.
+          Key for the Claude API. Without it, the release pull request carries the
+          notes release-please writes.
         required: false
     outputs:
       release-created:
         description: "\"true\" when a tag was cut on this run."
-        value: ${{ jobs.release-please.outputs.release-created }}
+        value: ${{ jobs.release.outputs.release-created }}
       tag-name:
         description: Tag created by this run, if any.
-        value: ${{ jobs.release-please.outputs.tag-name }}
+        value: ${{ jobs.release.outputs.tag-name }}
       release-pr:
         description: JSON describing the open release pull request, if any.
-        value: ${{ jobs.release-please.outputs.release-pr }}
+        value: ${{ jobs.pull-request.outputs.release-pr || jobs.notes.outputs.release-pr }}
 
 permissions: {}
 
 jobs:
-  release-please:
-    name: Release Please
+  release:
+    name: Release
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
       contents: write
       pull-requests: write
     outputs:
-      release-created: ${{ steps.release.outputs.release_created }}
-      tag-name: ${{ steps.release.outputs.tag_name }}
-      release-pr: ${{ steps.release.outputs.pr }}
+      release-created: ${{ steps.release.outputs.release-created }}
+      tag-name: ${{ steps.release.outputs.tag-name }}
     steps:
-      - name: Groom the release
+      - name: Tag the merged release
         id: release
-        uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5
+        uses: roquerodrigo/workflows/actions/release-please@main
         with:
+          phase: releases
           token: ${{ secrets.release-token || github.token }}
-          config-file: ${{ inputs.config-file }}
-          manifest-file: ${{ inputs.manifest-file }}
+          configuration: ${{ inputs.config-file }}
+          manifest: ${{ inputs.manifest-file }}
 
-  release-notes:
+  notes:
     name: Release notes
-    needs: release-please
-    if: needs.release-please.outputs.release-pr != ''
-    continue-on-error: true
+    needs: release
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
       contents: read
       pull-requests: read
+    outputs:
+      state: ${{ steps.result.outputs.state }}
+      notes: ${{ steps.result.outputs.notes }}
+      release-pr: ${{ steps.notes.outputs.pull-request }}
     steps:
-      - name: Check for the credentials
+      - name: Check for the API key
         id: credentials
         env:
           ANTHROPIC_API_KEY: ${{ secrets.anthropic-api-key }}
-          RELEASE_TOKEN: ${{ secrets.release-token }}
         run: |
-          if [ -n "$ANTHROPIC_API_KEY" ] && [ -n "$RELEASE_TOKEN" ]; then
+          if [ -n "$ANTHROPIC_API_KEY" ]; then
             echo "available=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Check out the release branch
+      - name: Write the notes
+        id: notes
         if: steps.credentials.outputs.available == 'true'
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ fromJSON(needs.release-please.outputs.release-pr).headBranchName }}
-          fetch-depth: 2
-          persist-credentials: false
-
-      - name: Rewrite the notes
-        if: steps.credentials.outputs.available == 'true'
+        continue-on-error: true
         uses: roquerodrigo/workflows/actions/release-notes@main
         with:
           repository: ${{ github.repository }}
-          pull-request: ${{ fromJSON(needs.release-please.outputs.release-pr).number }}
           configuration: ${{ inputs.config-file }}
+          manifest: ${{ inputs.manifest-file }}
           read-token: ${{ github.token }}
           anthropic-api-key: ${{ secrets.anthropic-api-key }}
-          write-token: ${{ secrets.release-token }}
+
+      # Job outputs hold one line, hence the encoding on the way to the next job.
+      - name: Hand the notes over
+        id: result
+        env:
+          OUTCOME: ${{ steps.notes.outcome }}
+          STATE: ${{ steps.notes.outputs.state }}
+          NOTES_FILE: ${{ steps.notes.outputs.notes-file }}
+        run: |
+          if [ "$OUTCOME" = "failure" ]; then
+            echo "state=failed" >> "$GITHUB_OUTPUT"
+          elif [ "$OUTCOME" = "skipped" ]; then
+            echo "state=absent" >> "$GITHUB_OUTPUT"
+          else
+            echo "state=$STATE" >> "$GITHUB_OUTPUT"
+          fi
+          if [ "$OUTCOME" = "success" ] && [ "$STATE" = "ready" ]; then
+            echo "notes=$(base64 --wrap=0 "$NOTES_FILE")" >> "$GITHUB_OUTPUT"
+          fi
+
+  pull-request:
+    name: Release pull request
+    needs: [release, notes]
+    if: needs.notes.outputs.state != 'unchanged'
+    # A release already cut has its publishing job waiting on this workflow, and a
+    # pull request that can wait for the next push is no reason to hold it back.
+    continue-on-error: ${{ needs.release.outputs.release-created == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release-pr: ${{ steps.pull-request.outputs.release-pr }}
+    steps:
+      - name: Leave the pull request alone without its notes
+        if: needs.notes.outputs.state == 'failed'
+        run: |
+          echo "::error::The release notes could not be written, so the release pull request was left as it is. The next push tries again."
+          exit 1
+
+      - name: Receive the notes
+        id: notes
+        if: needs.notes.outputs.state == 'ready'
+        env:
+          NOTES: ${{ needs.notes.outputs.notes }}
+        run: |
+          base64 --decode <<< "$NOTES" > "$RUNNER_TEMP/release-notes.json"
+          echo "file=$RUNNER_TEMP/release-notes.json" >> "$GITHUB_OUTPUT"
+
+      - name: Groom the release pull request
+        id: pull-request
+        uses: roquerodrigo/workflows/actions/release-please@main
+        with:
+          phase: pull-requests
+          token: ${{ secrets.release-token || github.token }}
+          configuration: ${{ inputs.config-file }}
+          manifest: ${{ inputs.manifest-file }}
+          notes-file: ${{ steps.notes.outputs.file }}

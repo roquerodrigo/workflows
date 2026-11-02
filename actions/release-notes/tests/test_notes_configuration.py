@@ -15,6 +15,42 @@ balance = "Balance"
 fixes = "Bug fixes"
 """
 
+TWO_LANGUAGES = """
+[[changelogs]]
+language = "pt-BR"
+path = "notes/mudancas.md"
+
+[[changelogs]]
+language = "en"
+path = "docs/CHANGELOG.en.md"
+"""
+SPANISH = """
+[[changelogs]]
+language = "en"
+
+[[changelogs]]
+language = "es"
+path = "docs/CHANGELOG.es.md"
+no_user_facing_changes = "Sin cambios."
+support = "Apoya en {url}"
+
+[changelogs.sections]
+breaking = "Cambios incompatibles"
+added = "Novedades"
+changed = "Mejoras"
+fixed = "Correcciones"
+"""
+DIFFERENT_SECTIONS = """
+[[changelogs]]
+language = "en"
+[changelogs.sections]
+news = "News"
+
+[[changelogs]]
+language = "pt-BR"
+path = "a.md"
+"""
+
 
 class NotesConfigurationTest(unittest.TestCase):
     def test_without_a_file_keeps_the_defaults_of_the_language(self):
@@ -67,6 +103,45 @@ class NotesConfigurationTest(unittest.TestCase):
                 NotesConfiguration.of(text, "en")
 
 
+class ChangelogsTest(unittest.TestCase):
+    def test_without_changelogs_the_only_file_stays_with_release_please(self):
+        configuration = NotesConfiguration.of(None, "pt-BR")
+        self.assertEqual([changelog.path for changelog in configuration.changelogs], [""])
+        self.assertEqual(configuration.languages, ["pt-BR"])
+
+    def test_the_first_changelog_is_the_language_of_the_release(self):
+        configuration = NotesConfiguration.of(TWO_LANGUAGES, "en")
+        self.assertEqual(configuration.language, "pt-BR")
+        self.assertEqual(configuration.languages, ["pt-BR", "en"])
+        self.assertEqual(configuration.primary.path, "notes/mudancas.md")
+        self.assertEqual(configuration.changelogs[1].section_titles, DEFAULT_SECTION_TITLES["en"])
+
+    def test_a_language_without_built_in_texts_declares_them(self):
+        configuration = NotesConfiguration.of(SPANISH, "en")
+        spanish = configuration.changelogs[1]
+        self.assertEqual(spanish.section_titles["fixed"], "Correcciones")
+        self.assertEqual(spanish.support_section("owner/repo"), "Apoya en https://github.com/sponsors/owner")
+
+    def test_refuses_what_it_cannot_use(self):
+        for text in (
+            "changelogs = []",
+            'changelogs = "en"',
+            'language = "en"\n[[changelogs]]\nlanguage = "en"',
+            '[[changelogs]]\nlanguage = "fr"',
+            "[[changelogs]]\nlanguage = 1",
+            '[[changelogs]]\nlanguage = "not a tag"',
+            '[[changelogs]]\nlanguage = "en"\nlanguges = "pt-BR"',
+            '[[changelogs]]\nlanguage = "en"\n[[changelogs]]\nlanguage = "pt-BR"',
+            '[[changelogs]]\nlanguage = "en"\npath = "a.md"\n[[changelogs]]\nlanguage = "pt-BR"\npath = "a.md"',
+            '[[changelogs]]\nlanguage = "en"\n[[changelogs]]\nlanguage = "en"\npath = "a.md"',
+            '[[changelogs]]\nlanguage = "en"\npath = "../outside.md"',
+            '[[changelogs]]\nlanguage = "en"\npath = "/etc/outside.md"',
+            DIFFERENT_SECTIONS,
+        ):
+            with self.subTest(text=text), self.assertRaises(InvalidNotesConfigurationError):
+                NotesConfiguration.of(text, "en")
+
+
 class SystemPromptTest(unittest.TestCase):
     def test_uses_the_default_prompt_without_a_project_prompt(self):
         self.assertIn(DEFAULT_PROMPT, system_prompt(NotesConfiguration.of(None, "en")))
@@ -82,3 +157,9 @@ class SystemPromptTest(unittest.TestCase):
         self.assertIn("- `balance`: Balance\n", system_prompt(configuration))
         category = output_schema(configuration)["properties"]["entries"]["items"]["properties"]["category"]
         self.assertEqual(category["enum"], ["breaking", "balance", "fixes"])
+
+    def test_asks_for_each_text_in_every_language(self):
+        schema = output_schema(NotesConfiguration.of(TWO_LANGUAGES, "en"))
+        summary = schema["properties"]["summary"]
+        self.assertEqual(summary["required"], ["pt-BR", "en"])
+        self.assertEqual(schema["properties"]["entries"]["items"]["properties"]["text"], summary)

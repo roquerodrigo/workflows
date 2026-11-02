@@ -2,10 +2,11 @@ import json
 import unittest
 
 from release_notes.conventional_commit import ConventionalCommit, visible_types
-from release_notes.errors import NotEligibleError
+from release_notes.errors import NotEligibleError, NotesUnchangedError
 from release_notes.release_source import ReleaseSource, ReleaseSourceCollector, language_of
 
 CONFIGURATION = {
+    "include-component-in-tag": False,
     "packages": {
         ".": {
             "changelog-sections": [
@@ -13,27 +14,32 @@ CONFIGURATION = {
                 {"type": "deps-dev", "section": "Development", "hidden": True},
             ]
         }
-    }
+    },
 }
 NOTES = 'prompt = "Be brief."\npriority_paths = ["data/"]\n[sections]\nbalance = "Balance"\n'
-BODY = "header\n---\n\n## [1.1.0](https://github.com/o/r/compare/v1.0.0...v1.1.0) (2026-01-01)\n\n---\nfooter"
 
 
 class FakeGitHub:
-    def __init__(
-        self, *, branch="release-please--branches--main", configuration=CONFIGURATION, body=BODY, notes=None, files=None
-    ):
-        self._branch = branch
+    def __init__(self, *, configuration=CONFIGURATION, notes=None, files=None, pull_requests=(), tag_exists=True):
         self._configuration = configuration
-        self._body = body
         self._notes = notes
         self._files = files
+        self._pull_requests = list(pull_requests)
+        self._tag_exists = tag_exists
+
+    def get_or_none(self, path):
+        assert path == "repos/o/r/git/ref/tags/v1.0.0"
+        return {"ref": "refs/tags/v1.0.0"} if self._tag_exists else None
 
     def get(self, path):
-        if path == "repos/o/r/pulls/5":
-            return {"head": {"ref": self._branch, "sha": "head"}, "body": self._body}
-        if path == "repos/o/r/commits/head":
+        if path == "repos/o/r":
+            return {"default_branch": "main"}
+        if path == "repos/o/r/commits/main":
+            return {"sha": "released"}
+        if path == "repos/o/r/commits/v1.1.0":
             return {"parents": [{"sha": "released"}]}
+        if path == "repos/o/r/pulls?state=open&per_page=100":
+            return self._pull_requests
         if path == "repos/o/r/commits/human":
             return {
                 "author": {"login": "someone"},
@@ -59,6 +65,8 @@ class FakeGitHub:
     def file_text(self, repository, path, ref):
         if path == "release-please-config.json":
             return json.dumps(self._configuration)
+        if path == ".release-please-manifest.json":
+            return json.dumps({".": "1.0.0"})
         if path == "hacs.json":
             return json.dumps({"country": ["BR"]})
         if path == ".github/release-notes.toml":
@@ -75,15 +83,23 @@ class FakeGitHub:
         ]
 
 
+def collector(github):
+    return ReleaseSourceCollector(github, "o/r", "release-please-config.json", ".release-please-manifest.json")
+
+
 def collect(github):
-    return ReleaseSourceCollector(github, "o/r", "release-please-config.json").collect(5)
+    return collector(github).collect()
+
+
+def release_pull_request(body):
+    return {"number": 5, "title": "chore", "body": body, "head": {"ref": "release-please--branches--main"}}
 
 
 class CollectorTest(unittest.TestCase):
     def test_keeps_only_the_commits_the_project_shows(self):
         source = collect(FakeGitHub())
         self.assertEqual([commit.pull_request_number for commit in source.commits], [12, 13])
-        self.assertEqual(source.language, "pt-BR")
+        self.assertEqual(source.notes_configuration.language, "pt-BR")
         self.assertTrue(source.has_breaking_commit)
 
     def test_omits_generated_files_and_everything_a_bot_wrote(self):
@@ -93,9 +109,32 @@ class CollectorTest(unittest.TestCase):
         self.assertEqual(bot.pull_request_description, "")
         self.assertEqual(bot.files[0].patch, "")
 
-    def test_refuses_a_branch_that_release_please_does_not_own(self):
+    def test_a_first_release_has_no_tag_to_compare_with(self):
         with self.assertRaises(NotEligibleError):
-            collect(FakeGitHub(branch="feature"))
+            collect(FakeGitHub(tag_exists=False))
+
+    def test_refuses_tags_that_carry_a_component(self):
+        with self.assertRaises(NotEligibleError):
+            collect(FakeGitHub(configuration={"packages": {".": {}}}))
+
+    def test_stops_when_the_open_pull_request_carries_the_notes_of_these_commits(self):
+        digest = collect(FakeGitHub()).digest
+        pull_request = release_pull_request(f"---\nNotes\n---\n<!-- release-notes: {digest} -->")
+        with self.assertRaises(NotesUnchangedError) as raised:
+            collect(FakeGitHub(pull_requests=[pull_request]))
+        self.assertEqual(raised.exception.pull_request, pull_request)
+
+    def test_writes_again_when_the_open_pull_request_has_other_notes(self):
+        for body in (f"<!-- release-notes: {'0' * 64} -->", "---\nDefault text\n---", None):
+            with self.subTest(body=body):
+                collect(FakeGitHub(pull_requests=[release_pull_request(body)]))
+
+    def test_a_change_to_the_notes_configuration_writes_the_notes_again(self):
+        self.assertNotEqual(collect(FakeGitHub()).digest, collect(FakeGitHub(notes=NOTES)).digest)
+
+    def test_a_past_release_leaves_its_release_commit_out(self):
+        source = collector(FakeGitHub()).collect_past_release("v1.0.0", "v1.1.0")
+        self.assertEqual([commit.pull_request_number for commit in source.commits], [12, 13])
 
     def test_refuses_several_packages(self):
         with self.assertRaises(NotEligibleError):
@@ -117,7 +156,7 @@ class CollectorTest(unittest.TestCase):
 
     def test_a_declared_language_decides_the_language_of_the_release(self):
         source = collect(FakeGitHub(notes='language = "en"'))
-        self.assertEqual(source.language, "en")
+        self.assertEqual(source.notes_configuration.language, "en")
         self.assertEqual(source.notes_configuration.section_titles["fixed"], "Bug fixes")
 
     def test_reads_priority_files_first_and_in_full(self):

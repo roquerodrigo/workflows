@@ -47,15 +47,9 @@ class GitHubClient:
                 return commits
             page += 1
 
-    def update_pull_request_body(self, repository: str, number: int, body: str) -> None:
-        self._run(
-            ["gh", "api", "-X", "PATCH", f"repos/{repository}/pulls/{number}", "--input", "-"],
-            stdin=json.dumps({"body": body}),
-        )
-
     @staticmethod
-    def _run(command: list[str], stdin: str | None = None) -> str:
-        completed = subprocess.run(command, input=stdin, capture_output=True, text=True, check=False)
+    def _run(command: list[str]) -> str:
+        completed = subprocess.run(command, capture_output=True, text=True, check=False)
         if completed.returncode != 0:
             raise RuntimeError(f"{' '.join(command[:3])} failed: {completed.stderr.strip()[:200]}")
         return completed.stdout

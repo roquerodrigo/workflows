@@ -73,3 +73,29 @@ jobs:
       - name: Run the tests
         working-directory: actions/release-notes
         run: uv run --frozen --no-dev python -m unittest discover -s tests -t .
+
+  release-please-tests:
+    name: Release Please tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Provision Node
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Install the dependencies
+        working-directory: actions/release-please
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Run the tests
+        working-directory: actions/release-please
+        run: npm test
