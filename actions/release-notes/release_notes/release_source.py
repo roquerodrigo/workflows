@@ -92,9 +92,9 @@ class ReleaseSourceCollector:
         released_sha = self._github.get(f"repos/{self._repository}/commits/{head_sha}")["parents"][0]["sha"]
         root, package = self._configuration(released_sha)
         shown_types = visible_types(package, root)
-        language = language_of(self._github.file_text(self._repository, "hacs.json", released_sha))
         notes_configuration = NotesConfiguration.of(
-            self._github.file_text(self._repository, NOTES_CONFIGURATION_PATH, released_sha), language
+            self._github.file_text(self._repository, NOTES_CONFIGURATION_PATH, released_sha),
+            language_of(self._github.file_text(self._repository, "hacs.json", released_sha)),
         )
         commits = [
             self._release_commit(commit["sha"], notes_configuration)
@@ -106,7 +106,7 @@ class ReleaseSourceCollector:
             pull_request_number=pull_request_number,
             head_sha=head_sha,
             head_branch=head_branch,
-            language=language,
+            language=notes_configuration.language,
             changelog_path=package.get("changelog-path") or root.get("changelog-path") or "CHANGELOG.md",
             notes_configuration=notes_configuration,
             commits=commits,
