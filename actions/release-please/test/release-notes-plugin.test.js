@@ -21,17 +21,39 @@ function publishedNotes() {
   };
 }
 
-async function published() {
+async function published(notes = publishedNotes()) {
   const version = Version.parse('1.1.0');
   const pullRequest = {
     version,
     updates: [],
     body: new PullRequestBody([{ version, notes: `${HEADING}\n\n### Correções\n\n- Corrige.\n` }]),
   };
-  const plugin = new ReleaseNotesPlugin({}, 'main', {}, publishedNotes());
+  const plugin = new ReleaseNotesPlugin({}, 'main', {}, notes);
   await plugin.run([{ path: '.', pullRequest, config: {} }]);
   return pullRequest;
 }
+
+test('keeps each release of a language in its own file, without the support section', async () => {
+  const notes = publishedNotes();
+  notes.changelogs[0].release_path = 'docs/releases/pt-BR/{version}.md';
+  notes.changelogs[1].release_path = 'docs/releases/en/{version}.md';
+  const { updates } = await published(notes);
+  assert.deepEqual(updates.map(update => update.path), [
+    'docs/releases/pt-BR/1.1.0.md',
+    'docs/CHANGELOG.en.md',
+    'docs/releases/en/1.1.0.md',
+  ]);
+  const portuguese = updates[0].updater.updateContent('an earlier write');
+  assert.equal(portuguese, `${HEADING}\n\n### Correções\n\n- Corrige.\n`);
+  assert.equal(updates[2].updater.updateContent(undefined), `${HEADING}\n\n### Bug fixes\n\n- Fixes.\n`);
+});
+
+test('a translation can live only in the files of its releases', async () => {
+  const notes = publishedNotes();
+  notes.changelogs[1] = { ...notes.changelogs[1], path: '', release_path: 'docs/releases/en/{version}.md' };
+  const { updates } = await published(notes);
+  assert.deepEqual(updates.map(update => update.path), ['docs/releases/en/1.1.0.md']);
+});
 
 test('leaves the banner of release-please out and keeps the digest out of sight', async () => {
   const body = (await published()).body.toString();

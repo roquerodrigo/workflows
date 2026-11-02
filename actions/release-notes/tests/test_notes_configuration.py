@@ -40,6 +40,24 @@ added = "Novedades"
 changed = "Mejoras"
 fixed = "Correcciones"
 """
+SAME_RELEASE_FILES = """
+[[changelogs]]
+language = "en"
+release_path = "a/{version}.md"
+
+[[changelogs]]
+language = "pt-BR"
+release_path = "a/{version}.md"
+"""
+RELEASE_FILES = """
+[[changelogs]]
+language = "en"
+release_path = "docs/releases/en/{version}.md"
+
+[[changelogs]]
+language = "pt-BR"
+release_path = "docs/releases/pt-BR/{version}.md"
+"""
 DIFFERENT_SECTIONS = """
 [[changelogs]]
 language = "en"
@@ -122,8 +140,22 @@ class ChangelogsTest(unittest.TestCase):
         self.assertEqual(spanish.section_titles["fixed"], "Correcciones")
         self.assertEqual(spanish.support_section("owner/repo"), "Apoya en https://github.com/sponsors/owner")
 
+    def test_keeps_each_release_in_its_own_file(self):
+        configuration = NotesConfiguration.of(RELEASE_FILES, "en")
+        self.assertEqual(
+            [changelog.release_path for changelog in configuration.changelogs],
+            ["docs/releases/en/{version}.md", "docs/releases/pt-BR/{version}.md"],
+        )
+
+    def test_a_translation_can_live_only_in_the_files_of_its_releases(self):
+        self.assertEqual(NotesConfiguration.of(RELEASE_FILES, "en").changelogs[1].path, "")
+
     def test_refuses_what_it_cannot_use(self):
         for text in (
+            '[[changelogs]]\nlanguage = "en"\nrelease_path = "docs/release.md"',
+            '[[changelogs]]\nlanguage = "en"\nrelease_path = "../{version}.md"',
+            '[[changelogs]]\nlanguage = "en"\nrelease_path = 1',
+            SAME_RELEASE_FILES,
             "changelogs = []",
             'changelogs = "en"',
             'language = "en"\n[[changelogs]]\nlanguage = "en"',

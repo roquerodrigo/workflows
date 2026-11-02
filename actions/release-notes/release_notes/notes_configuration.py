@@ -38,7 +38,10 @@ DEFAULT_SUPPORT_SECTIONS = {
     ),
 }
 KNOWN_FIELDS = frozenset({"language", "prompt", "sections", "priority_paths", "changelogs"})
-KNOWN_CHANGELOG_FIELDS = frozenset({"language", "path", "sections", "no_user_facing_changes", "support"})
+KNOWN_CHANGELOG_FIELDS = frozenset(
+    {"language", "path", "release_path", "sections", "no_user_facing_changes", "support"}
+)
+RELEASE_PATH_VERSION = "{version}"
 LANGUAGE_TAG = re.compile(r"^[A-Za-z]{2,3}(-[A-Za-z0-9]+)*$")
 
 
@@ -48,13 +51,14 @@ def _is_filled_text(value: object) -> bool:
 
 @dataclass(frozen=True)
 class Changelog:
-    """One language of the notes and the file that keeps it. An empty path leaves the file to release-please."""
+    """One language of the notes and the files that keep it. An empty path leaves the file to release-please."""
 
     language: str
     section_titles: dict[str, str]
     no_user_facing_changes: str
     support: str
     path: str = ""
+    release_path: str = ""
 
     @classmethod
     def of(cls, declared: object) -> Changelog:
@@ -72,6 +76,7 @@ class Changelog:
             no_user_facing_changes=cls._text(declared, "no_user_facing_changes", DEFAULT_NO_USER_FACING_CHANGES),
             support=cls._text(declared, "support", DEFAULT_SUPPORT_SECTIONS),
             path=cls._path(declared.get("path", "")),
+            release_path=cls._release_path(declared.get("release_path", "")),
         )
 
     @staticmethod
@@ -103,6 +108,15 @@ class Changelog:
         relative = PurePosixPath(path)
         if relative.is_absolute() or ".." in relative.parts:
             raise InvalidNotesConfigurationError(f"{path} is outside the repository")
+        return path
+
+    @classmethod
+    def _release_path(cls, release_path: object) -> str:
+        path = cls._path(release_path)
+        if path and RELEASE_PATH_VERSION not in path:
+            raise InvalidNotesConfigurationError(
+                f"release_path needs {RELEASE_PATH_VERSION}, or every release overwrites the last"
+            )
         return path
 
     def support_section(self, repository: str) -> str:
@@ -158,9 +172,9 @@ class NotesConfiguration:
     @staticmethod
     def _check_translations(changelogs: tuple[Changelog, ...]) -> None:
         primary, *translations = changelogs
-        if any(not translation.path for translation in translations):
-            raise InvalidNotesConfigurationError("only the first changelog can leave out its path")
-        paths = [changelog.path for changelog in changelogs if changelog.path]
+        if any(not translation.path and not translation.release_path for translation in translations):
+            raise InvalidNotesConfigurationError("only the first changelog can leave out both of its paths")
+        paths = [path for changelog in changelogs for path in (changelog.path, changelog.release_path) if path]
         languages = [changelog.language for changelog in changelogs]
         if len(set(paths)) != len(paths) or len(set(languages)) != len(languages):
             raise InvalidNotesConfigurationError("each changelog needs its own language and path")

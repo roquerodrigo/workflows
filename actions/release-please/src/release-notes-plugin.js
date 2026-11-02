@@ -18,14 +18,25 @@ export class ReleaseNotesPlugin extends ManifestPlugin {
     const { digest, support, changelogs } = this.publishedNotes;
     const [release] = pullRequest.body.releaseData;
     const [heading] = release.notes.split('\n');
-    const [, ...translations] = changelogs;
-    for (const { path, notes } of translations) {
-      pullRequest.updates.push({
-        path,
-        createIfMissing: true,
-        updater: new Changelog({ changelogEntry: `${heading}\n\n${notes.trim()}\n`, version: pullRequest.version }),
-      });
-    }
+    const version = pullRequest.version.toString();
+    changelogs.forEach(({ path, release_path: releasePath, notes }, position) => {
+      const entry = `${heading}\n\n${notes.trim()}\n`;
+      // release-please already keeps the file of the first changelog.
+      if (path && position > 0) {
+        pullRequest.updates.push({
+          path,
+          createIfMissing: true,
+          updater: new Changelog({ changelogEntry: entry, version: pullRequest.version }),
+        });
+      }
+      if (releasePath) {
+        pullRequest.updates.push({
+          path: releasePath.replaceAll('{version}', version),
+          createIfMissing: true,
+          updater: { updateContent: () => entry },
+        });
+      }
+    });
     // The release is published from this body, so the sponsorship invitation
     // reaches it without repeating under every version of the changelog.
     release.notes = `${release.notes.trim()}\n\n${support.trim()}`;

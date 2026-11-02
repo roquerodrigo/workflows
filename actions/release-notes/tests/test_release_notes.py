@@ -12,6 +12,7 @@ language = "pt-BR"
 [[changelogs]]
 language = "en"
 path = "docs/CHANGELOG.en.md"
+release_path = "docs/releases/en/{version}.md"
 """
 
 
@@ -116,8 +117,13 @@ class PublishedNotesTest(unittest.TestCase):
                 "digest": "digest",
                 "support": changelog_in("pt-BR").support_section("owner/repo"),
                 "changelogs": [
-                    {"language": "pt-BR", "path": "", "notes": "### Correções\n\n- Corrige.\n"},
-                    {"language": "en", "path": "docs/CHANGELOG.en.md", "notes": "### Bug fixes\n\n- Fixes.\n"},
+                    {"language": "pt-BR", "path": "", "release_path": "", "notes": "### Correções\n\n- Corrige.\n"},
+                    {
+                        "language": "en",
+                        "path": "docs/CHANGELOG.en.md",
+                        "release_path": "docs/releases/en/{version}.md",
+                        "notes": "### Bug fixes\n\n- Fixes.\n",
+                    },
                 ],
             },
         )
