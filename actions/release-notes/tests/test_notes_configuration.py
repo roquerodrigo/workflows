@@ -1,8 +1,17 @@
 import unittest
+from dataclasses import asdict
 
 from release_notes.errors import InvalidNotesConfigurationError
 from release_notes.notes_configuration import DEFAULT_SECTION_TITLES, NotesConfiguration
-from release_notes.notes_writer import DEFAULT_PROMPT, FIXED_RULES, output_schema, system_prompt
+from release_notes.notes_writer import (
+    BOLD_ENTRIES_RULE,
+    DEFAULT_PROMPT,
+    FIXED_RULES,
+    NO_MARKUP_RULE,
+    TITLE_RULE,
+    output_schema,
+    system_prompt,
+)
 
 CONFIGURATION = """
 prompt = '''
@@ -195,3 +204,38 @@ class SystemPromptTest(unittest.TestCase):
         summary = schema["properties"]["summary"]
         self.assertEqual(summary["required"], ["pt-BR", "en"])
         self.assertEqual(schema["properties"]["entries"]["items"]["properties"]["text"], summary)
+
+    def test_keeps_the_rule_against_markup_unless_the_project_asks_for_bold(self):
+        plain = system_prompt(NotesConfiguration.of(None, "en"))
+        self.assertIn(NO_MARKUP_RULE, plain)
+        self.assertNotIn(BOLD_ENTRIES_RULE, plain)
+        self.assertNotIn(TITLE_RULE, plain)
+        bold = system_prompt(NotesConfiguration.of("bold_entries = true", "en"))
+        self.assertIn(BOLD_ENTRIES_RULE, bold)
+        self.assertNotIn(NO_MARKUP_RULE, bold)
+
+    def test_asks_for_a_title_only_when_the_project_wants_one(self):
+        self.assertNotIn("title", output_schema(NotesConfiguration.of(TWO_LANGUAGES, "en"))["properties"])
+        configuration = NotesConfiguration.of(f"title = true\n{TWO_LANGUAGES}", "en")
+        schema = output_schema(configuration)
+        self.assertEqual(schema["properties"]["title"], schema["properties"]["summary"])
+        self.assertIn("title", schema["required"])
+        self.assertIn(TITLE_RULE, system_prompt(configuration))
+
+
+class TitleAndBoldTest(unittest.TestCase):
+    def test_are_off_by_default(self):
+        configuration = NotesConfiguration.of(None, "en")
+        self.assertFalse(configuration.title)
+        self.assertFalse(configuration.bold_entries)
+
+    def test_read_from_the_file_and_survive_the_step_between_collecting_and_writing(self):
+        configuration = NotesConfiguration.of("title = true\nbold_entries = true", "en")
+        restored = NotesConfiguration.from_dict(asdict(configuration))
+        self.assertTrue(restored.title)
+        self.assertTrue(restored.bold_entries)
+
+    def test_reject_anything_but_true_or_false(self):
+        for text in ('title = "yes"', "bold_entries = 1"):
+            with self.subTest(text=text), self.assertRaises(InvalidNotesConfigurationError):
+                NotesConfiguration.of(text, "en")
