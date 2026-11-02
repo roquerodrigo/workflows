@@ -31,7 +31,12 @@ def compose(arguments: argparse.Namespace) -> None:
 
     source = ReleaseSource.from_json(arguments.source.read_text(encoding="utf-8"))
     written = write_notes(source) if source.commits else {"summary": "", "entries": []}
-    ReleaseNotes.validated(written, source.known_pull_requests, has_breaking_commit=source.has_breaking_commit)
+    ReleaseNotes.validated(
+        written,
+        source.known_pull_requests,
+        has_breaking_commit=source.has_breaking_commit,
+        section_titles=source.notes_configuration.section_titles,
+    )
     arguments.notes.write_text(json.dumps(written, ensure_ascii=False), encoding="utf-8")
 
 
@@ -40,8 +45,9 @@ def _rendered(source: ReleaseSource, heading: str, notes_path: Path) -> str:
         json.loads(notes_path.read_text(encoding="utf-8")),
         source.known_pull_requests,
         has_breaking_commit=source.has_breaking_commit,
+        section_titles=source.notes_configuration.section_titles,
     )
-    return notes.render(heading, source.language, source.repository)
+    return notes.render(heading, source.language, source.repository, source.notes_configuration.section_titles)
 
 
 def preview(arguments: argparse.Namespace) -> None:

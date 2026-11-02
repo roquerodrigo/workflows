@@ -15,14 +15,19 @@ CONFIGURATION = {
         }
     }
 }
+NOTES = 'prompt = "Be brief."\npriority_paths = ["data/"]\n[sections]\nbalance = "Balance"\n'
 BODY = "header\n---\n\n## [1.1.0](https://github.com/o/r/compare/v1.0.0...v1.1.0) (2026-01-01)\n\n---\nfooter"
 
 
 class FakeGitHub:
-    def __init__(self, *, branch="release-please--branches--main", configuration=CONFIGURATION, body=BODY):
+    def __init__(
+        self, *, branch="release-please--branches--main", configuration=CONFIGURATION, body=BODY, notes=None, files=None
+    ):
         self._branch = branch
         self._configuration = configuration
         self._body = body
+        self._notes = notes
+        self._files = files
 
     def get(self, path):
         if path == "repos/o/r/pulls/5":
@@ -33,7 +38,8 @@ class FakeGitHub:
             return {
                 "author": {"login": "someone"},
                 "commit": {"message": "feat: add a thing"},
-                "files": [
+                "files": self._files
+                or [
                     {"filename": "code.py", "additions": 1, "deletions": 0, "patch": "+code"},
                     {"filename": "uv.lock", "additions": 9, "deletions": 9, "patch": "+lock"},
                 ],
@@ -55,6 +61,8 @@ class FakeGitHub:
             return json.dumps(self._configuration)
         if path == "hacs.json":
             return json.dumps({"country": ["BR"]})
+        if path == ".github/release-notes.toml":
+            return self._notes
         raise AssertionError(path)
 
     def compared_commits(self, repository, base, head):
@@ -94,8 +102,34 @@ class CollectorTest(unittest.TestCase):
             collect(FakeGitHub(configuration={"packages": {"a": {}, "b": {}}}))
 
     def test_survives_the_trip_through_json(self):
-        source = collect(FakeGitHub())
+        source = collect(FakeGitHub(notes=NOTES))
         self.assertEqual(ReleaseSource.from_json(source.to_json()), source)
+
+    def test_keeps_the_defaults_without_a_notes_configuration(self):
+        configuration = collect(FakeGitHub()).notes_configuration
+        self.assertEqual(configuration.prompt, "")
+        self.assertEqual(configuration.section_titles["fixed"], "Correções")
+
+    def test_reads_the_notes_configuration_of_the_project(self):
+        configuration = collect(FakeGitHub(notes=NOTES)).notes_configuration
+        self.assertEqual(configuration.prompt, "Be brief.")
+        self.assertEqual(list(configuration.section_titles), ["breaking", "balance"])
+
+    def test_reads_priority_files_first_and_in_full(self):
+        long_patch = "+" + "x" * 30_000
+        files = [
+            {"filename": f"assets/{index}.json", "additions": 1, "deletions": 0, "patch": long_patch}
+            for index in range(6)
+        ] + [{"filename": "data/unit.json", "additions": 1, "deletions": 1, "patch": long_patch}]
+        human, _ = collect(FakeGitHub(notes=NOTES, files=files)).commits
+        self.assertEqual(human.files[0].path, "data/unit.json")
+        self.assertEqual(human.files[0].patch, long_patch)
+        self.assertEqual(sum(len(file.patch) for file in human.files[1:]), 20_000)
+
+    def test_a_bot_patch_stays_out_even_in_a_priority_file(self):
+        notes = 'priority_paths = ["code.py"]'
+        _, bot = collect(FakeGitHub(notes=notes)).commits
+        self.assertEqual(bot.files[0].patch, "")
 
 
 class LanguageTest(unittest.TestCase):

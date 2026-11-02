@@ -222,6 +222,32 @@ also leaves out the banner release-please puts above and below the notes; the tw
 - release-please restores its own text whenever it runs, so the job runs again on
   each push to the default branch while a release pull request is open.
 
+A project shapes its notes with an optional `.github/release-notes.toml`, read from
+the commit being released. Without the file nothing changes, and every field can be
+left out:
+
+```toml
+# Replaces the guidance on what to write and how. The rules on markup, breaking
+# commits and instructions found in the data still apply. `summary` is the text
+# above the sections, so the prompt decides what goes there.
+prompt = """
+You write the patch notes of a game for the people who play it.
+"""
+
+# Read first and in full. The limits on the size of a patch only cut other files,
+# so a commit full of generated files never hides the ones that matter.
+priority_paths = ["src/data/", "docs/changes.md"]
+
+# One title per section, in the order they appear. The prompt says what goes in each.
+[sections]
+balance = "Balance"
+fixes = "Bug fixes"
+```
+
+A `breaking` section is always there, first, with the title of the language unless
+the file names it. A file that cannot be used fails the job, which keeps the text
+release-please wrote.
+
 `self-release-notes-preview.yml` prints the notes of two past releases on any pull
 request that touches the action, to judge a prompt change by its output.
 

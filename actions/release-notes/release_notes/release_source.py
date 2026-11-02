@@ -6,6 +6,7 @@ from dataclasses import asdict, dataclass
 from release_notes.conventional_commit import ConventionalCommit, visible_types
 from release_notes.errors import NotEligibleError
 from release_notes.github_client import GitHubClient
+from release_notes.notes_configuration import NOTES_CONFIGURATION_PATH, NotesConfiguration
 from release_notes.pull_request_body import ReleasePullRequestBody
 
 RELEASE_BRANCH_PREFIX = "release-please--"
@@ -41,6 +42,7 @@ class ReleaseSource:
     head_branch: str
     language: str
     changelog_path: str
+    notes_configuration: NotesConfiguration
     commits: list[ReleaseCommit]
 
     @property
@@ -61,7 +63,8 @@ class ReleaseSource:
             ReleaseCommit(**{**commit, "files": [ChangedFile(**file) for file in commit["files"]]})
             for commit in data.pop("commits")
         ]
-        return cls(**data, commits=commits)
+        notes_configuration = NotesConfiguration(**data.pop("notes_configuration"))
+        return cls(**data, notes_configuration=notes_configuration, commits=commits)
 
 
 def language_of(hacs_manifest: str | None) -> str:
@@ -89,8 +92,12 @@ class ReleaseSourceCollector:
         released_sha = self._github.get(f"repos/{self._repository}/commits/{head_sha}")["parents"][0]["sha"]
         root, package = self._configuration(released_sha)
         shown_types = visible_types(package, root)
+        language = language_of(self._github.file_text(self._repository, "hacs.json", released_sha))
+        notes_configuration = NotesConfiguration.of(
+            self._github.file_text(self._repository, NOTES_CONFIGURATION_PATH, released_sha), language
+        )
         commits = [
-            self._release_commit(commit["sha"])
+            self._release_commit(commit["sha"], notes_configuration)
             for commit in self._github.compared_commits(self._repository, body.previous_tag, released_sha)
             if self._is_shown(commit["commit"]["message"], shown_types)
         ]
@@ -99,8 +106,9 @@ class ReleaseSourceCollector:
             pull_request_number=pull_request_number,
             head_sha=head_sha,
             head_branch=head_branch,
-            language=language_of(self._github.file_text(self._repository, "hacs.json", released_sha)),
+            language=language,
             changelog_path=package.get("changelog-path") or root.get("changelog-path") or "CHANGELOG.md",
+            notes_configuration=notes_configuration,
             commits=commits,
         )
 
@@ -119,7 +127,7 @@ class ReleaseSourceCollector:
         commit = ConventionalCommit.parse(message)
         return commit is not None and (commit.is_breaking or commit.type in shown_types)
 
-    def _release_commit(self, sha: str) -> ReleaseCommit:
+    def _release_commit(self, sha: str, notes_configuration: NotesConfiguration) -> ReleaseCommit:
         details = self._github.get(f"repos/{self._repository}/commits/{sha}")
         message = details["commit"]["message"]
         pull_requests = self._github.get(f"repos/{self._repository}/commits/{sha}/pulls")
@@ -132,7 +140,7 @@ class ReleaseSourceCollector:
             pull_request_number=pull_request["number"] if pull_request else None,
             pull_request_title=pull_request["title"] if pull_request else "",
             pull_request_description=self._description(pull_request, written_by_a_bot),
-            files=self._files(details.get("files", []), written_by_a_bot),
+            files=self._files(details.get("files", []), written_by_a_bot, notes_configuration),
         )
 
     @staticmethod
@@ -142,12 +150,16 @@ class ReleaseSourceCollector:
         return (pull_request.get("body") or "")[:MAXIMUM_DESCRIPTION_CHARACTERS]
 
     @staticmethod
-    def _files(files: list[dict], written_by_a_bot: bool) -> list[ChangedFile]:
+    def _files(files: list[dict], written_by_a_bot: bool, notes_configuration: NotesConfiguration) -> list[ChangedFile]:
         remaining = 0 if written_by_a_bot else MAXIMUM_PATCH_CHARACTERS_PER_COMMIT
         changed = []
-        for file in files:
+        for file in sorted(files, key=lambda file: not notes_configuration.is_priority(file["filename"])):
             is_generated = file["filename"].endswith(GENERATED_FILES)
-            patch = "" if is_generated else file.get("patch", "")[: min(MAXIMUM_PATCH_CHARACTERS_PER_FILE, remaining)]
-            remaining -= len(patch)
+            patch = "" if is_generated else file.get("patch", "")
+            if not notes_configuration.is_priority(file["filename"]):
+                patch = patch[: min(MAXIMUM_PATCH_CHARACTERS_PER_FILE, remaining)]
+                remaining -= len(patch)
+            elif written_by_a_bot:
+                patch = ""
             changed.append(ChangedFile(file["filename"], file["additions"], file["deletions"], patch))
         return changed
