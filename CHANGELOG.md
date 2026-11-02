@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.4.0](https://github.com/roquerodrigo/workflows/compare/v2.3.0...v2.4.0) (2026-11-02)
+
+Projects can now shape their release notes with an optional configuration file that sets the prompt, section titles, priority files and language.
+
+### New features
+
+- A project can add an optional .github/release-notes.toml to set its own writing guidance, section titles and order, and files that are always read in full. ([#53](https://github.com/roquerodrigo/workflows/pull/53))
+- The release notes configuration file accepts a language, en or pt-BR, which overrides the language otherwise taken from hacs.json. ([#55](https://github.com/roquerodrigo/workflows/pull/55))
+
+
 ## [2.3.0](https://github.com/roquerodrigo/workflows/compare/v2.2.0...v2.3.0) (2026-11-01)
 
 The auto-assign workflow can now request a review on open pull requests, and the Node.js setup keeps its npm cache across releases.
