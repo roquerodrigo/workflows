@@ -4,12 +4,8 @@ import re
 from dataclasses import dataclass
 
 from release_notes.errors import RejectedNotesError
+from release_notes.notes_configuration import BREAKING_SECTION
 
-CATEGORIES = ("breaking", "added", "changed", "fixed")
-TITLES = {
-    "en": {"breaking": "Breaking changes", "added": "New features", "changed": "Improvements", "fixed": "Bug fixes"},
-    "pt-BR": {"breaking": "Mudanças incompatíveis", "added": "Novidades", "changed": "Melhorias", "fixed": "Correções"},
-}
 NO_USER_FACING_CHANGES = {
     "en": "Internal maintenance only, with no changes for those who use the project.",
     "pt-BR": "Apenas manutenção interna, sem mudanças para quem usa o projeto.",
@@ -40,7 +36,14 @@ class ReleaseNotes:
     entries: tuple[NotesEntry, ...]
 
     @classmethod
-    def validated(cls, written: dict, known_pull_requests: set[int], *, has_breaking_commit: bool) -> ReleaseNotes:
+    def validated(
+        cls,
+        written: dict,
+        known_pull_requests: set[int],
+        *,
+        has_breaking_commit: bool,
+        section_titles: dict[str, str],
+    ) -> ReleaseNotes:
         summary = _single_line(written["summary"])
         entries = tuple(
             NotesEntry(
@@ -50,24 +53,24 @@ class ReleaseNotes:
             )
             for entry in written["entries"]
         )
-        if any(not entry.text or entry.category not in CATEGORIES for entry in entries):
+        if any(not entry.text or entry.category not in section_titles for entry in entries):
             raise RejectedNotesError("an entry is empty or has an unknown category")
         if any(FORBIDDEN_MARKUP.search(text) for text in (summary, *(entry.text for entry in entries))):
             raise RejectedNotesError("the text carries a link, an image, a mention or a release-please tag")
-        if has_breaking_commit and not any(entry.category == "breaking" for entry in entries):
+        if has_breaking_commit and not any(entry.category == BREAKING_SECTION for entry in entries):
             raise RejectedNotesError("a breaking commit has no breaking entry")
         return cls(summary=summary, entries=entries)
 
-    def render(self, heading: str, language: str, repository: str) -> str:
+    def render(self, heading: str, language: str, repository: str, section_titles: dict[str, str]) -> str:
         if not self.entries:
             return f"{heading}\n\n{NO_USER_FACING_CHANGES[language]}\n"
         blocks = [heading]
         if self.summary:
             blocks.append(self.summary)
-        for category in CATEGORIES:
+        for category, title in section_titles.items():
             lines = [_bullet(entry, repository) for entry in self.entries if entry.category == category]
             if lines:
-                blocks.append(f"### {TITLES[language][category]}\n\n" + "\n".join(lines))
+                blocks.append(f"### {title}\n\n" + "\n".join(lines))
         return "\n\n".join(blocks) + "\n"
 
 

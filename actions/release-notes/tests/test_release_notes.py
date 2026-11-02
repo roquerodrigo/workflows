@@ -1,6 +1,7 @@
 import unittest
 
 from release_notes.errors import RejectedNotesError
+from release_notes.notes_configuration import DEFAULT_SECTION_TITLES
 from release_notes.release_notes import ReleaseNotes, support_section
 
 HEADING = "## [1.1.0](https://github.com/owner/repo/compare/v1.0.0...v1.1.0) (2026-01-02)"
@@ -10,9 +11,12 @@ def entry(category="fixed", text="Text.", pull_requests=()):
     return {"category": category, "text": text, "pull_requests": list(pull_requests)}
 
 
-def validated(*entries, summary="", known=frozenset(), breaking=False):
+def validated(*entries, summary="", known=frozenset(), breaking=False, titles=DEFAULT_SECTION_TITLES["en"]):
     return ReleaseNotes.validated(
-        {"summary": summary, "entries": list(entries)}, set(known), has_breaking_commit=breaking
+        {"summary": summary, "entries": list(entries)},
+        set(known),
+        has_breaking_commit=breaking,
+        section_titles=titles,
     )
 
 
@@ -44,21 +48,34 @@ class ValidationTest(unittest.TestCase):
         with self.assertRaises(RejectedNotesError):
             validated(entry(text="   "))
 
+    def test_rejects_a_section_the_project_does_not_have(self):
+        with self.assertRaises(RejectedNotesError):
+            validated(entry("fixed"), titles={"balance": "Balance"})
+
 
 class RenderTest(unittest.TestCase):
     def test_groups_by_category_in_a_fixed_order(self):
         notes = validated(entry("fixed", "Fix."), entry("added", "Add.", [7]), known={7})
         self.assertEqual(
-            notes.render(HEADING, "en", "owner/repo"),
+            notes.render(HEADING, "en", "owner/repo", DEFAULT_SECTION_TITLES["en"]),
             f"{HEADING}\n\n### New features\n\n- Add. ([#7](https://github.com/owner/repo/pull/7))"
             "\n\n### Bug fixes\n\n- Fix.\n",
         )
 
     def test_titles_follow_the_language(self):
-        self.assertIn("### Correções", validated(entry()).render(HEADING, "pt-BR", "owner/repo"))
+        titles = DEFAULT_SECTION_TITLES["pt-BR"]
+        self.assertIn("### Correções", validated(entry(), titles=titles).render(HEADING, "pt-BR", "owner/repo", titles))
+
+    def test_sections_follow_the_order_and_titles_of_the_project(self):
+        titles = {"balance": "Balance", "fixes": "Bug fixes"}
+        notes = validated(entry("fixes", "Fix."), entry("balance", "Tune."), summary="A tale.", titles=titles)
+        self.assertEqual(
+            notes.render(HEADING, "en", "owner/repo", titles),
+            f"{HEADING}\n\nA tale.\n\n### Balance\n\n- Tune.\n\n### Bug fixes\n\n- Fix.\n",
+        )
 
     def test_a_release_without_user_facing_changes_says_so(self):
-        rendered = validated().render(HEADING, "pt-BR", "owner/repo")
+        rendered = validated().render(HEADING, "pt-BR", "owner/repo", DEFAULT_SECTION_TITLES["pt-BR"])
         self.assertEqual(rendered, f"{HEADING}\n\nApenas manutenção interna, sem mudanças para quem usa o projeto.\n")
 
 
