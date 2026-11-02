@@ -37,7 +37,7 @@ DEFAULT_SUPPORT_SECTIONS = {
         "[apoiar o trabalho]({url}) — isso mantém o desenvolvimento, os testes e os releases em andamento.\n"
     ),
 }
-KNOWN_FIELDS = frozenset({"language", "prompt", "sections", "priority_paths", "changelogs"})
+KNOWN_FIELDS = frozenset({"language", "prompt", "sections", "priority_paths", "changelogs", "title", "bold_entries"})
 KNOWN_CHANGELOG_FIELDS = frozenset(
     {"language", "path", "release_path", "sections", "no_user_facing_changes", "support"}
 )
@@ -129,6 +129,8 @@ class NotesConfiguration:
     changelogs: tuple[Changelog, ...]
     prompt: str = ""
     priority_paths: list[str] = field(default_factory=list)
+    title: bool = False
+    bold_entries: bool = False
 
     @classmethod
     def of(cls, text: str | None, default_language: str) -> NotesConfiguration:
@@ -142,16 +144,28 @@ class NotesConfiguration:
         priority_paths = declared.get("priority_paths", [])
         if not isinstance(priority_paths, list) or not all(_is_filled_text(path) for path in priority_paths):
             raise InvalidNotesConfigurationError("priority_paths is not a list of paths")
+        title = declared.get("title", False)
+        bold_entries = declared.get("bold_entries", False)
+        if not isinstance(title, bool) or not isinstance(bold_entries, bool):
+            raise InvalidNotesConfigurationError("title and bold_entries are not true or false")
         return cls(
             changelogs=cls._changelogs(declared, default_language),
             prompt=prompt.strip(),
             priority_paths=priority_paths,
+            title=title,
+            bold_entries=bold_entries,
         )
 
     @classmethod
     def from_dict(cls, data: dict) -> NotesConfiguration:
         changelogs = tuple(Changelog(**changelog) for changelog in data["changelogs"])
-        return cls(changelogs=changelogs, prompt=data["prompt"], priority_paths=data["priority_paths"])
+        return cls(
+            changelogs=changelogs,
+            prompt=data["prompt"],
+            priority_paths=data["priority_paths"],
+            title=data["title"],
+            bold_entries=data["bold_entries"],
+        )
 
     @classmethod
     def _changelogs(cls, declared: dict, default_language: str) -> tuple[Changelog, ...]:

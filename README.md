@@ -222,7 +222,8 @@ so reviewing the pull request is reviewing the text.
   run, and the next push tries again. The default text is never used as a fallback.
   A release already merged is still tagged and published.
 - The model runs with no tools and no GitHub token, and its text is rejected if it
-  carries a link, an image or a mention, or omits a breaking commit.
+  carries a link, an image or a mention, or omits a breaking commit. A project that
+  asks for a title has it rejected too when a release with entries comes without one.
 - A first release has no previous tag to compare with, tags that carry a component
   are not supported, and neither is a repository with several packages. These keep
   the text release-please writes.
@@ -242,6 +243,13 @@ language = "pt-BR"
 prompt = """
 You write the patch notes of a game for the people who play it.
 """
+
+# Asks for a title of a few words in each language, written in bold above the text.
+title = true
+
+# Lets the model put in bold, inside each entry, the part a reader should not miss.
+# The text is rejected if a mark is left open. Without it the notes take no Markdown.
+bold_entries = true
 
 # Read first and in full. The limits on the size of a patch only cut other files,
 # so a commit full of generated files never hides the ones that matter.
