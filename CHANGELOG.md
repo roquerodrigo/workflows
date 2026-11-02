@@ -1,5 +1,28 @@
 # Changelog
 
+## [2.4.0](https://github.com/roquerodrigo/workflows/compare/v2.3.0...v2.4.0) (2026-11-02)
+
+Projects can now configure their release notes, and release pull requests carry the final notes from their first write.
+
+### New features
+
+- Projects can add a .github/release-notes.toml file to set the prompt, section titles, languages, priority files and changelogs of their notes. ([#53](https://github.com/roquerodrigo/workflows/pull/53), [#55](https://github.com/roquerodrigo/workflows/pull/55), [#58](https://github.com/roquerodrigo/workflows/pull/58))
+- Projects can keep the notes of each release in a file of their own, named by version, next to or instead of the cumulative changelog. ([#58](https://github.com/roquerodrigo/workflows/pull/58))
+- Projects can ask for a short bold title above their release notes, and for bold emphasis inside each entry. ([#59](https://github.com/roquerodrigo/workflows/pull/59))
+
+### Improvements
+
+- Release notes are written before the release pull request is opened, so the pull request shows the final text from its first write. ([#56](https://github.com/roquerodrigo/workflows/pull/56))
+- A push that adds no changelog entries no longer calls the model or rewrites the release pull request. ([#56](https://github.com/roquerodrigo/workflows/pull/56))
+- Release notes only need the Claude API key; the release token is no longer required for them. ([#56](https://github.com/roquerodrigo/workflows/pull/56))
+- If the notes cannot be written, the run fails and the release pull request is left as it is, to be retried on the next push. ([#56](https://github.com/roquerodrigo/workflows/pull/56))
+- Release notes are now written with Claude Haiku 5.5, and a refused request fails the run until the next push retries it. ([#60](https://github.com/roquerodrigo/workflows/pull/60))
+
+### Bug fixes
+
+- Large generated files in a commit no longer hide the files a project marks as priority from the release notes. ([#53](https://github.com/roquerodrigo/workflows/pull/53))
+
+
 ## [2.3.0](https://github.com/roquerodrigo/workflows/compare/v2.2.0...v2.3.0) (2026-11-01)
 
 The auto-assign workflow can now request a review on open pull requests, and the Node.js setup keeps its npm cache across releases.
