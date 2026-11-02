@@ -21,7 +21,7 @@ DEFAULT_SECTION_TITLES = {
         "fixed": "Correções",
     },
 }
-KNOWN_FIELDS = frozenset({"prompt", "sections", "priority_paths"})
+KNOWN_FIELDS = frozenset({"language", "prompt", "sections", "priority_paths"})
 
 
 def _is_filled_text(value: object) -> bool:
@@ -30,16 +30,20 @@ def _is_filled_text(value: object) -> bool:
 
 @dataclass(frozen=True)
 class NotesConfiguration:
+    language: str
     section_titles: dict[str, str]
     prompt: str = ""
     priority_paths: list[str] = field(default_factory=list)
 
     @classmethod
-    def of(cls, text: str | None, language: str) -> NotesConfiguration:
+    def of(cls, text: str | None, default_language: str) -> NotesConfiguration:
         declared = tomllib.loads(text) if text else {}
         unknown = sorted(set(declared) - KNOWN_FIELDS)
         if unknown:
             raise InvalidNotesConfigurationError(f"unknown fields: {', '.join(unknown)}")
+        language = declared.get("language", default_language)
+        if language not in DEFAULT_SECTION_TITLES:
+            raise InvalidNotesConfigurationError(f"language must be one of: {', '.join(DEFAULT_SECTION_TITLES)}")
         prompt = declared.get("prompt", "")
         if not isinstance(prompt, str):
             raise InvalidNotesConfigurationError("prompt is not text")
@@ -47,6 +51,7 @@ class NotesConfiguration:
         if not isinstance(priority_paths, list) or not all(_is_filled_text(path) for path in priority_paths):
             raise InvalidNotesConfigurationError("priority_paths is not a list of paths")
         return cls(
+            language=language,
             section_titles=cls._section_titles(declared.get("sections", {}), language),
             prompt=prompt.strip(),
             priority_paths=priority_paths,

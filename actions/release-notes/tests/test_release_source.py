@@ -115,6 +115,11 @@ class CollectorTest(unittest.TestCase):
         self.assertEqual(configuration.prompt, "Be brief.")
         self.assertEqual(list(configuration.section_titles), ["breaking", "balance"])
 
+    def test_a_declared_language_decides_the_language_of_the_release(self):
+        source = collect(FakeGitHub(notes='language = "en"'))
+        self.assertEqual(source.language, "en")
+        self.assertEqual(source.notes_configuration.section_titles["fixed"], "Bug fixes")
+
     def test_reads_priority_files_first_and_in_full(self):
         long_patch = "+" + "x" * 30_000
         files = [

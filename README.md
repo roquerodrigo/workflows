@@ -209,7 +209,8 @@ also leaves out the banner release-please puts above and below the notes; the tw
 `---` lines stay because it needs them to recognise the pull request.
 
 - The notes are in pt-BR when `hacs.json` declares `"country": ["BR"]`, and in
-  English otherwise. Section titles are fixed for each language.
+  English otherwise, unless the project declares a language (below). Section titles
+  are fixed for each language, unless the project names its own.
 - The release ends with a section that invites sponsorship, in the same language.
   It is fixed text, and it stays out of `CHANGELOG.md`, where it would repeat for
   every version.
@@ -227,6 +228,9 @@ the commit being released. Without the file nothing changes, and every field can
 left out:
 
 ```toml
+# The language of the notes, "en" or "pt-BR". Without it, hacs.json decides.
+language = "pt-BR"
+
 # Replaces the guidance on what to write and how. The rules on markup, breaking
 # commits and instructions found in the data still apply. `summary` is the text
 # above the sections, so the prompt decides what goes there.

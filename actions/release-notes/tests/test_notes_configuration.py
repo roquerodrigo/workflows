@@ -42,8 +42,19 @@ class NotesConfigurationTest(unittest.TestCase):
         configuration = NotesConfiguration.of('prompt = "Hello"', "en")
         self.assertEqual(configuration.section_titles, DEFAULT_SECTION_TITLES["en"])
 
+    def test_keeps_the_language_of_the_project_without_a_declared_one(self):
+        self.assertEqual(NotesConfiguration.of(None, "pt-BR").language, "pt-BR")
+        self.assertEqual(NotesConfiguration.of('prompt = "Hello"', "en").language, "en")
+
+    def test_a_declared_language_replaces_the_one_of_the_project(self):
+        configuration = NotesConfiguration.of('language = "pt-BR"\n[sections]\nnews = "Novidades"', "en")
+        self.assertEqual(configuration.language, "pt-BR")
+        self.assertEqual(configuration.section_titles["breaking"], "Mudanças incompatíveis")
+
     def test_refuses_what_it_cannot_use(self):
         for text in (
+            'language = "fr"',
+            "language = 1",
             'promt = "typo"',
             "prompt = 1",
             'sections = "news"',
