@@ -8,8 +8,7 @@ from release_notes.errors import RejectedNotesError
 from release_notes.notes_configuration import NotesConfiguration
 from release_notes.release_source import ReleaseSource
 
-MODEL = "claude-opus-5-5"
-REFUSAL_FALLBACK_BETA = "server-side-fallback-2026-07-01"
+MODEL = "claude-haiku-5-5"
 LANGUAGE_NAMES = {"en": "English", "pt-BR": "Brazilian Portuguese"}
 
 DEFAULT_PROMPT = """\
@@ -111,11 +110,9 @@ def output_schema(notes_configuration: NotesConfiguration) -> dict:
 
 
 def write_notes(source: ReleaseSource) -> dict:
-    response = anthropic.Anthropic().beta.messages.create(
+    response = anthropic.Anthropic().messages.create(
         model=MODEL,
         max_tokens=16_000,
-        betas=[REFUSAL_FALLBACK_BETA],
-        fallbacks="default",
         system=system_prompt(source.notes_configuration),
         output_config={
             "effort": "medium",
