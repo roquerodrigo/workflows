@@ -284,6 +284,18 @@ changed = "Mejoras"
 fixed = "Correcciones"
 ```
 
+A changelog can also keep each release in a file of its own, with `release_path`. It
+needs `{version}`, the version without the `v`, and the file holds the same text as
+the entry in the changelog. It works next to `path`, and a language other than the
+first can use it instead of `path`. The first language always keeps `changelog-path`
+too, unless release-please is told to `skip-changelog`:
+
+```toml
+[[changelogs]]
+language = "en"
+release_path = "docs/releases/en/{version}.md"
+```
+
 All the languages come from one call to the model, entry by entry, so they cannot
 list different changes. Every changelog needs the same sections.
 

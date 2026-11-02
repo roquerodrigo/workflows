@@ -71,6 +71,7 @@ def published_notes(written: dict, source: ReleaseSource) -> dict:
             {
                 "language": changelog.language,
                 "path": changelog.path,
+                "release_path": changelog.release_path,
                 "notes": _rendered(written, source, changelog),
             }
             for changelog in configuration.changelogs
