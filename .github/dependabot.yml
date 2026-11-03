@@ -6,8 +6,6 @@ updates:
       - /
       - /actions/setup-python
       - /actions/setup-node
-      - /actions/release-notes
-      - /actions/release-please
     schedule:
       interval: weekly
       day: monday
@@ -22,34 +20,3 @@ updates:
       actions:
         patterns: ["*"]
 
-  - package-ecosystem: uv
-    directory: /actions/release-notes
-    schedule:
-      interval: weekly
-      day: monday
-      time: "09:00"
-      timezone: America/Sao_Paulo
-    cooldown:
-      default-days: 7
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-    groups:
-      release-notes:
-        patterns: ["*"]
-
-  - package-ecosystem: npm
-    directory: /actions/release-please
-    schedule:
-      interval: weekly
-      day: monday
-      time: "09:00"
-      timezone: America/Sao_Paulo
-    cooldown:
-      default-days: 7
-    commit-message:
-      prefix: "deps"
-      include: "scope"
-    groups:
-      release-please:
-        patterns: ["*"]

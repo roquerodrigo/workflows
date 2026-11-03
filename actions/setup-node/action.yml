@@ -20,8 +20,8 @@ runs:
         node-version: ${{ inputs.node-version }}
         package-manager-cache: false
 
-    # release-please bumps the project's own version in the lockfile on every
-    # release, so hashing the file as it is misses the cache on each of them.
+    # Every release bumps the project's own version in the lockfile, so hashing
+    # the file as it is misses the cache on each of them.
     - name: Hash the locked dependencies
       id: lockfile
       shell: bash

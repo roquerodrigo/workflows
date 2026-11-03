@@ -68,8 +68,8 @@ jobs:
 
   version-check:
     # Catches drift between the two version sources: manifest.json, which Home
-    # Assistant reads at runtime, and pyproject.toml, which release-please bumps
-    # alongside it. Release-please writes both atomically; this guards against a
+    # Assistant reads at runtime, and pyproject.toml, which the release bumps
+    # alongside it. The release writes both atomically; this guards against a
     # manual edit that touches only one.
     name: Version check
     if: inputs.version-check
