@@ -9,6 +9,9 @@ name: Auto-assign
 # assignee without access to the repository, so an outside author simply falls
 # away; bot authors are skipped outright because they can never be assigned.
 #
+# Dependabot pull requests are left untouched: nobody is assigned and no review
+# is requested, and a run Dependabot itself triggered does not start at all.
+#
 # A caller that sets a reviewer gets it requested on every open pull request
 # someone else opened: GitHub refuses a review request to the author. A pull
 # request the reviewer has already reviewed is left alone, or each sweep would
@@ -33,6 +36,7 @@ permissions: {}
 jobs:
   assign:
     name: Assign @${{ inputs.assignee }} and the author
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -47,7 +51,7 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/${REPOSITORY}/issues?state=open&per_page=100" --paginate \
-            --jq '.[] | select(.assignees | length == 0) | "\(.number) \(.user.login)"' |
+            --jq '.[] | select(.user.login != "dependabot[bot]") | select(.assignees | length == 0) | "\(.number) \(.user.login)"' |
             while read -r number author; do
               logins=("${ASSIGNEE}")
               case "${author}" in
@@ -72,7 +76,7 @@ jobs:
         run: |
           set -euo pipefail
           gh api "repos/${REPOSITORY}/pulls?state=open&per_page=100" --paginate \
-            --jq '.[] | select(.user.login != env.REVIEWER) | select(all(.requested_reviewers[]; .login != env.REVIEWER)) | .number' |
+            --jq '.[] | select(.user.login != "dependabot[bot]") | select(.user.login != env.REVIEWER) | select(all(.requested_reviewers[]; .login != env.REVIEWER)) | .number' |
             while read -r number; do
               reviews=$(gh api "repos/${REPOSITORY}/pulls/${number}/reviews?per_page=100" --paginate \
                 --jq '.[] | select(.user.login == env.REVIEWER) | .id')
