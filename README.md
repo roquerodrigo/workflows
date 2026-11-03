@@ -5,6 +5,10 @@
 Reusable GitHub Actions workflows and composite actions shared across Home
 Assistant integrations, Python SDKs, npm packages and Lovelace cards.
 
+What is specific to Home Assistant, validating a repository for the Home Assistant
+Marketplace and attaching its release asset, lives in
+[Home Assistant Autopilot](https://github.com/marketplace/actions/home-assistant-autopilot).
+
 Every consumer keeps a thin caller that wires these together. A fix lands once
 here and reaches every repository on its next run.
 
@@ -22,10 +26,7 @@ actions/                          composite actions — the shared steps
 ├── node-build.yml                npm run build
 ├── node-test.yml                 npm test
 ├── codeql.yml                    CodeQL, any language
-├── home-assistant-validate.yml   hassfest, HACS, manifest/pyproject drift
 ├── publish-pypi.yml              build and upload to PyPI
-├── publish-hacs-zip.yml          attach the HACS install zip to the release
-├── publish-hacs-plugin.yml       attach the HACS card bundle to the release
 ├── publish-npm.yml               build and publish to npm
 ├── auto-assign.yml               assign the maintainer and the author, optionally request a review
 ├── update-pr-branch.yml          rebase the pull request onto its base
@@ -34,8 +35,7 @@ actions/                          composite actions — the shared steps
 
 Workflows are named after the ecosystem they serve, not the consumer that calls
 them: linting a Python SDK and linting an integration are the same job, so they
-share `python-lint.yml`. Only genuinely domain-specific behaviour —
-`home-assistant-validate.yml` — carries a domain name.
+share `python-lint.yml`.
 
 ## Versioning
 
@@ -91,8 +91,17 @@ jobs:
     uses: roquerodrigo/workflows/.github/workflows/python-test.yml@main
 
   validate:
+    name: Home Assistant Marketplace
     needs: lint
-    uses: roquerodrigo/workflows/.github/workflows/home-assistant-validate.yml@main
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: roquerodrigo/home-assistant-autopilot@latest
 
   update-pr-branch:
     if: github.event_name == 'pull_request'
@@ -127,9 +136,6 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
-    outputs:
-      released: ${{ steps.release.outputs.released }}
-      tag: ${{ steps.release.outputs.tag }}
     steps:
       - id: release
         uses: roquerodrigo/release-autopilot@latest
@@ -137,58 +143,32 @@ jobs:
           token: ${{ secrets.RELEASE_TOKEN }}
           anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
 
-  publish:
-    needs: release
-    if: needs.release.outputs.released == 'true'
-    uses: roquerodrigo/workflows/.github/workflows/publish-hacs-zip.yml@main
-    with:
-      domain: <domain>
-      ref: ${{ needs.release.outputs.tag }}
+      - if: steps.release.outputs.released == 'true'
+        uses: roquerodrigo/home-assistant-autopilot@latest
+        with:
+          command: publish
+          tag: ${{ steps.release.outputs.tag }}
 ```
 
 The release itself comes from [Release Autopilot](https://github.com/marketplace/actions/release-autopilot),
-which keeps the release pull request, writes the notes and tags the version; the
-workflows here only publish what it tagged. The `workflow_run.event == 'push'`
-half of the condition is what stops a pull request with green CI from cutting a
-release.
-
-`publish-hacs-zip.yml` packages `custom_components/<domain>/` and attaches it to
-the tag. It only pays off alongside `hacs.json`:
-
-```json
-{ "zip_release": true, "filename": "<domain>.zip" }
-```
-
-Without both halves HACS keeps installing file by file, and the release's
-`download_count` — the only per-repository usage figure there is — stays at
-zero. The analytics Home Assistant publishes are keyed by domain, so a fork and
-the project it forked from report as one.
-
-A private integration cannot run HACS validation, which reads the repository
-through the public API — pass `hacs: false`. A Lovelace card has no manifest and
-no Python package — pass `hassfest: false`, `version-check: false` and
-`hacs-category: plugin`.
-
-A card also releases its asset differently. There is no directory to package, so
-it composes `publish-hacs-plugin.yml` instead, naming the bundle that
-`hacs.json` already points at:
-
-```yaml
-  publish:
-    needs: release
-    if: needs.release.outputs.released == 'true'
-    uses: roquerodrigo/workflows/.github/workflows/publish-hacs-plugin.yml@main
-    with:
-      filename: <card>.js
-      ref: ${{ needs.release.outputs.tag }}
-```
+which keeps the release pull request, writes the notes and tags the version. The
+`workflow_run.event == 'push'` half of the condition is what stops a pull request
+with green CI from cutting a release. A Lovelace card uses the same two steps with
+its own CI, since Home Assistant Autopilot reads what the repository is.
 
 ### Python SDK
 
 CI is `python-lint.yml` plus `python-test.yml`. Release is the same `release` job
-as an integration's, followed by `publish-pypi.yml`:
+as an integration's, exposing the outputs of Release Autopilot and followed by
+`publish-pypi.yml`:
 
 ```yaml
+  release:
+    # ...the job above, without the Home Assistant Autopilot step
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      tag: ${{ steps.release.outputs.tag }}
+
   publish:
     needs: release
     if: needs.release.outputs.released == 'true'
