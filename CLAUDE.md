@@ -35,9 +35,8 @@ a PR:
   their own `permissions: {}` ceiling.
 - Secrets are passed explicitly, never `secrets: inherit`.
 - Every job sets `timeout-minutes`.
-- `home-assistant-validate.yml` jobs are opt-out (`hassfest`, `hacs`,
-  `version-check` inputs) because private integrations and Lovelace cards can't run
-  the full set — see the header comment there.
+- Nothing specific to Home Assistant lives here: validation for the Home Assistant
+  Marketplace and the release asset belong to `roquerodrigo/home-assistant-autopilot`.
 
 ## Git
 
