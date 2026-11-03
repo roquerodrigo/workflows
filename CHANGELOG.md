@@ -1,5 +1,18 @@
 # Changelog
 
+## [3.0.0](https://github.com/roquerodrigo/workflows/compare/v2.3.0...v3.0.0) (2026-11-03)
+
+Release and Home Assistant validation move to Home Assistant Autopilot and Release Autopilot, with breaking removals of the older workflows.
+
+### Breaking changes
+
+- The Home Assistant workflows are removed. Validate with a job that runs Home Assistant Autopilot after checkout, and attach the release asset with its publish command. ([#63](https://github.com/roquerodrigo/workflows/pull/63))
+- The release-please workflow and its actions are removed. Replace the release job with Release Autopilot and read its released and tag outputs instead. ([#61](https://github.com/roquerodrigo/workflows/pull/61))
+
+### Improvements
+
+- Auto-assign no longer assigns or requests reviews on Dependabot pull requests, and runs that Dependabot triggers are skipped. ([#64](https://github.com/roquerodrigo/workflows/pull/64))
+
 ## [2.3.0](https://github.com/roquerodrigo/workflows/compare/v2.2.0...v2.3.0) (2026-11-01)
 
 The auto-assign workflow can now request a review on open pull requests, and the Node.js setup keeps its npm cache across releases.
