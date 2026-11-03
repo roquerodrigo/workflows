@@ -8,7 +8,7 @@ patterns and conventions — read it before changing a workflow's interface.
 ## The one constraint that governs every change
 
 The account's own callers reference `@main`, so **a merge here is live in every
-consumer on its next run**. Releases exist (`self-release.yml`, release-please,
+consumer on its next run**. Releases exist (`self-release.yml`, Release Autopilot,
 `vX.Y.Z` tags) for outside users who pin, but they protect nobody in-house. A
 breaking change breaks everyone at once. Treat input names, defaults, secret
 names and output names as a public contract: rename or remove one only when you
@@ -17,22 +17,15 @@ existing one.
 
 ## Verifying a change
 
-CI (`self-ci.yml`) is the only test surface. The package managers here are the
-`uv` project in `actions/release-notes` and the npm project in
-`actions/release-please`. Reproduce CI locally before opening a PR:
+CI (`self-ci.yml`) is the only test surface. Reproduce it locally before opening
+a PR:
 
 - `actionlint`
 - `uvx --from 'zizmor>=1,<2' zizmor --persona regular --min-severity low .`
   (needs `GH_TOKEN` set; audit policy lives in `zizmor.yml`)
-- In `actions/release-notes`: `uvx ruff check .`, `uvx ruff format --check .`,
-  `uv run --frozen --no-dev python -m unittest discover -s tests -t .`
-- In `actions/release-please`: `npm ci --ignore-scripts`, `npm test`
 
 ## Conventions not obvious from a single file
 
-- `actions/release-please` pins `release-please` to an exact version because it
-  imports from `build/src/`, which is not a public interface. Run its tests on
-  every bump.
 - Third-party action `uses:` are pinned by commit digest with a trailing version
   comment; `roquerodrigo/*` are pinned by branch on purpose (see `zizmor.yml` —
   freezing them would defeat the shared-`@main` model). Dependabot bumps the
