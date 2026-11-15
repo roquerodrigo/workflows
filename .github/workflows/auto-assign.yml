@@ -12,10 +12,10 @@ name: Auto-assign
 # Dependabot pull requests are left untouched: nobody is assigned and no review
 # is requested, and a run Dependabot itself triggered does not start at all.
 #
-# A caller that sets a reviewer gets it requested on every open pull request
-# someone else opened: GitHub refuses a review request to the author. A pull
-# request the reviewer has already reviewed is left alone, or each sweep would
-# ask for the review again.
+# The reviewer, the maintainer unless the caller overrides it, is requested on
+# every open pull request someone else opened: GitHub refuses a review request
+# to the author. A pull request the reviewer has already reviewed is left alone,
+# or each sweep would ask for the review again.
 
 on:
   workflow_call:
@@ -26,10 +26,10 @@ on:
         type: string
         default: roquerodrigo
       reviewer:
-        description: Login requested as reviewer on open pull requests. Requests nobody by default.
+        description: Login requested as reviewer on open pull requests. An empty string requests nobody.
         required: false
         type: string
-        default: ""
+        default: roquerodrigo
 
 permissions: {}
 

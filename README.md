@@ -28,7 +28,7 @@ actions/                          composite actions — the shared steps
 ├── codeql.yml                    CodeQL, any language
 ├── publish-pypi.yml              build and upload to PyPI
 ├── publish-npm.yml               build and publish to npm
-├── auto-assign.yml               assign the maintainer and the author, optionally request a review
+├── auto-assign.yml               assign the maintainer and the author, request the maintainer's review
 ├── update-pr-branch.yml          rebase the pull request onto its base
 └── self-*.yml                    this repository's own callers: CI, release, auto-assign
 ```
