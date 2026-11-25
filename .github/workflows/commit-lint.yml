@@ -1,0 +1,89 @@
+name: Commit lint
+
+# Rebase is the only merge method, so every commit of a pull request lands on
+# the base branch as it is, and Release Autopilot reads those commits to pick
+# the next version and write the notes. That is why each commit subject is
+# checked, not only the pull request title.
+#
+# Merge commits are skipped: a rebase merge never carries them onto the base.
+
+on:
+  workflow_call:
+    inputs:
+      types:
+        description: Space-separated commit types accepted in the subject.
+        required: false
+        type: string
+        default: build chore ci deps deps-dev docs feat fix perf refactor revert style test
+
+permissions: {}
+
+jobs:
+  conventional-commits:
+    name: Conventional Commits
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      pull-requests: read
+    steps:
+      - name: Check every commit subject
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          PULL_REQUEST: ${{ github.event.pull_request.number }}
+          COMMIT_COUNT: ${{ github.event.pull_request.commits }}
+          TYPES: ${{ inputs.types }}
+        run: |
+          set -euo pipefail
+          if [ -z "${PULL_REQUEST}" ]; then
+            echo "::error::Commit lint only runs on pull_request events."
+            exit 1
+          fi
+          read -ra accepted_types <<<"${TYPES}"
+          if [ "${#accepted_types[@]}" -eq 0 ]; then
+            echo "::error::The types input lists no commit type."
+            exit 1
+          fi
+          for accepted_type in "${accepted_types[@]}"; do
+            if [[ ! "${accepted_type}" =~ ^[a-z][a-z0-9-]*$ ]]; then
+              echo "::error::Invalid commit type '${accepted_type}': use lowercase letters, digits and hyphens."
+              exit 1
+            fi
+          done
+          type_alternatives=$(IFS='|'; echo "${accepted_types[*]}")
+          subject_pattern="^(${type_alternatives})(\([^()]+\))?!?: [^[:space:]]"
+          commits=$(mktemp)
+          gh api "repos/${REPOSITORY}/pulls/${PULL_REQUEST}/commits?per_page=100" --paginate \
+            --jq '.[] | [.sha[0:7], (.parents | length)] + (.commit.message | split("\n")[0] | [test("[\t\r]"), gsub("[\t\r]"; " ")]) | @tsv' >"${commits}"
+          # The endpoint stops at 250 commits; refuse a partial list rather than pass it.
+          retrieved=$(wc -l <"${commits}")
+          if [ "${retrieved}" -ne "${COMMIT_COUNT}" ]; then
+            echo "::error::Retrieved ${retrieved} of the ${COMMIT_COUNT} commits, so the pull request cannot be fully checked."
+            exit 1
+          fi
+          failures=0
+          while IFS=$'\t' read -r sha parent_count has_control_character subject; do
+            if [ "${parent_count}" -gt 1 ]; then
+              continue
+            fi
+            if [ "${has_control_character}" = true ]; then
+              echo "::error title=Not a Conventional Commit::${sha} has a tab or carriage return in its subject"
+              failures=$((failures + 1))
+            elif [[ "${subject}" =~ ${subject_pattern} ]]; then
+              echo "ok      ${sha} ${subject}"
+            else
+              echo "::error title=Not a Conventional Commit::${sha} ${subject}"
+              failures=$((failures + 1))
+            fi
+          done <"${commits}"
+          if [ "${failures}" -gt 0 ]; then
+            {
+              echo "### ${failures} commit(s) are not Conventional Commits"
+              echo
+              echo "Each subject must read \`type(scope): description\`, with the scope optional and \`!\` before the colon for a breaking change."
+              echo "Accepted types: \`${accepted_types[*]}\`."
+              echo
+              echo "Reword the commits, for example with \`git rebase -i\`, and force-push the branch."
+            } >>"${GITHUB_STEP_SUMMARY}"
+            exit 1
+          fi
