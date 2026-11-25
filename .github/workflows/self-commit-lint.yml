@@ -1,0 +1,20 @@
+name: Commit lint
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: commit-lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  commits:
+    permissions:
+      pull-requests: read
+    # zizmor prefers the `$/` self-repository form, but actionlint (v1.7.12)
+    # rejects it as an invalid reusable workflow reference. Keep the
+    # workspace-relative form until actionlint learns the new syntax.
+    uses: ./.github/workflows/commit-lint.yml # zizmor: ignore[self-repository]

@@ -29,8 +29,9 @@ actions/                          composite actions — the shared steps
 ├── publish-pypi.yml              build and upload to PyPI
 ├── publish-npm.yml               build and publish to npm
 ├── auto-assign.yml               assign the maintainer and the author, optionally request a review
+├── commit-lint.yml               every commit of a pull request is a Conventional Commit
 ├── update-pr-branch.yml          rebase the pull request onto its base
-└── self-*.yml                    this repository's own callers: CI, release, auto-assign
+└── self-*.yml                    this repository's own callers: CI, release, auto-assign, commit lint
 ```
 
 Workflows are named after the ecosystem they serve, not the consumer that calls
@@ -190,6 +191,41 @@ Each package needs the publisher registered once, under **Package settings >
 Trusted publisher** on npmjs.com: GitHub Actions, the consuming repository, and
 the caller's workflow filename. The OIDC claim names the entry workflow, not the
 reusable one.
+
+### Commit lint
+
+Every repository carries the same caller, so the required check reads
+`commits / Conventional Commits` everywhere. It runs on every pull request,
+whatever its base, so a stacked pull request retargeted onto `main` is checked
+again.
+
+`.github/workflows/commit-lint.yml`
+
+```yaml
+name: Commit lint
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, edited]
+
+concurrency:
+  group: commit-lint-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  commits:
+    permissions:
+      pull-requests: read
+    uses: roquerodrigo/workflows/.github/workflows/commit-lint.yml@main
+```
+
+Each commit subject, not only the pull request title, must read
+`type(scope): description`, because a rebase merge lands every commit on `main`
+and Release Autopilot reads them. The accepted types default to `build chore ci
+deps deps-dev docs feat fix perf refactor revert style test`; the `types` input
+replaces the list.
 
 ## Conventions
 
