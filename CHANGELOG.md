@@ -1,5 +1,15 @@
 # Changelog
 
+## [3.1.0](https://github.com/roquerodrigo/workflows/compare/v3.0.0...v3.1.0) (2026-11-25)
+
+### New features
+
+- New reusable commit-lint workflow fails a pull request when any commit subject is not a Conventional Commit, with an optional types input to replace the accepted commit types. ([#69](https://github.com/roquerodrigo/workflows/pull/69))
+
+### Improvements
+
+- The setup-python action now uses astral-sh/setup-uv 10.3.3. ([#65](https://github.com/roquerodrigo/workflows/pull/65))
+
 ## [3.0.0](https://github.com/roquerodrigo/workflows/compare/v2.3.0...v3.0.0) (2026-11-03)
 
 Release and Home Assistant validation move to Home Assistant Autopilot and Release Autopilot, with breaking removals of the older workflows.
